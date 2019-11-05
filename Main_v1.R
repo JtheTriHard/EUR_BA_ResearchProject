@@ -1,3 +1,4 @@
+# Author: JTheTriHard
 # Test Version
 
 # Install necessary packages
@@ -7,6 +8,7 @@
 #install.packages("stargazer", dependencies = TRUE)
 #install.packages("lm.beta", dependencies = TRUE )
 #install.packages("tidyverse",dependencies = TRUE)
+#install.packages("devtools", dependencies = TRUE)
 
 # Load data
 dsBikeContract <- read.csv(file="~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE)
@@ -64,16 +66,66 @@ for (i in 1:nRows){
   }
 }
 
-# Location
-dsBikeContract$Neighborhood <- sample(1:12,nRows, replace = TRUE)
-# Gender (1 = M, 2 = F)
+# Location (See report for assignments)
+dsBikeContract$Neighborhood <- sample(1:12,nRows, replace = TRUE) #randomly assigned for testing purposes
+
+# Gender (1 = M, 2 = F): dGender
 
 # TARGET VAR
-# Willingness to engage in bike-sharing
+# Willingness to engage in bike-sharing = IntentContract
+
+# Remove all unused variables from test dataset
+dsBikeContract <- dplyr::select(dsBikeContract,PsychOwn,UseFreq,MinLength,Age,HrPWork,Neighborhood,dGender,IntentContract)
+
+# Save summary of non-normalized data
+stargazer::stargazer(dsBikeContract,
+                     align = TRUE ,
+                     digits=2,
+                     type = "html",
+                     out = "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Results/dsSummary.doc")
 
 
 #---------------------------------------------------
 #
 #             2. Dimension Reduction
+#
+#---------------------------------------------------
+
+# Reduce only the control variables down to a total of 3 dimensions to allow for 3D visualization
+# Leave explanatory vars attached
+
+ctrlVars <- dplyr::select(dsBikeContract,Age,HrPWork,Neighborhood,dGender)
+pcaResults <- prcomp(ctrlVars,scale = TRUE)
+summary(pcaResults)
+plot(pcaResults)
+
+# WARNING: The fourth component accounts for a significant portion of the variance.
+# Continue for the sake of practicing the concept, but do not rely on for accurate analysis
+
+# Check whether enough variance is still accounted for
+
+
+
+#---------------------------------------------------
+#
+#                  3. Clustering
+#
+#---------------------------------------------------
+
+# Use K-Means clustering with a convergence condition of
+
+
+
+# Check for most effective number of clusters
+
+
+
+# Plot color-coded result
+
+
+
+#---------------------------------------------------
+#
+#                   4. Analysis
 #
 #---------------------------------------------------
