@@ -6,6 +6,7 @@
 #install.packages("psych",dependencies = TRUE)
 #install.packages("stargazer", dependencies = TRUE)
 #install.packages("lm.beta", dependencies = TRUE )
+#install.packages("tidyverse",dependencies = TRUE)
 
 # Load data
 dsBikeContract <- read.csv(file="~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE)
@@ -27,6 +28,8 @@ nRows <- nrow(dsBikeContract)
 nCols <- ncol(dsBikeContract)
 cat("Number of Responses Removed: ",nInitialObs-nRows)
 
+# EXPLANATORY VARS
+
 # Create likert indicator as an average of the scores
 myPsychOwn <- c("PsychOwn01", "PsychOwn02", "PsychOwn03","PsychOwn04")
 dsBikeContract$PsychOwn <- psych::alpha(dsBikeContract[myPsychOwn],check.keys=TRUE,cumulative = FALSE)$scores
@@ -42,14 +45,30 @@ for (i in 1:nRows){
   }
 }
 
-# Age
+# CONTROL VARS
 
-# Gender
+# Age (Survey requests yr of birth)
+curYr = 2019
+dsBikeContract$Age <- curYr - dsBikeContract$YrBirth
 
-# Employment
+# Employment (1 = NA, 2 = Part-Time, 3 = Full-Time)
+for (i in 1:nRows){
+  if (dsBikeContract$HrPWork[i] >= 35){
+    dsBikeContract$HrPWork[i] <- 3
+  }
+  else if (dsBikeContract$HrPWork[i] <35 && dsBikeContract$HrPWork[i] > 0){
+    dsBikeContract$HrPWork[i] <- 2
+  }
+  else{
+    dsBikeContract$HrPWork[i] <- 1
+  }
+}
 
 # Location
+dsBikeContract$Neighborhood <- sample(1:12,nRows, replace = TRUE)
+# Gender (1 = M, 2 = F)
 
+# TARGET VAR
 # Willingness to engage in bike-sharing
 
 
