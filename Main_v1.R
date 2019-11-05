@@ -9,7 +9,8 @@
 #install.packages("lm.beta", dependencies = TRUE )
 #install.packages("tidyverse",dependencies = TRUE)
 #install.packages("devtools", dependencies = TRUE)
-
+#install.packages("plotly",dependencies = TRUE)
+install.packages("plyr",dependencies = TRUE)
 # Load data
 dsBikeContract <- read.csv(file="~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE)
 nInitialObs <- nrow(dsBikeContract)
@@ -96,13 +97,42 @@ stargazer::stargazer(dsBikeContract,
 
 ctrlVars <- dplyr::select(dsBikeContract,Age,HrPWork,Neighborhood,dGender)
 pcaResults <- prcomp(ctrlVars,scale = TRUE)
-summary(pcaResults)
-plot(pcaResults)
+pcaSummary <- summary(pcaResults)
+# Scree plot
+barplot(pcaSummary$importance[2,],
+        ylab = "Proportion of Variance")
+barplot(pcaSummary$importance[3,],
+        ylab = "Cumulative Proportion of Variance")
+cat("Proportion of Variance Not Accounted for: ",pcaSummary$importance[2,4])
 
-# WARNING: The fourth component accounts for a significant portion of the variance.
+# Biplot for first two components
+biplot(pcaResults)
+# observation 99 is a significant outlier. Age is very similar to PC1 and neighborhood (random) is very similar to PC2
+# TO DO: Figure out how to display lines on 3D plot?
+
+# WARNING: The fourth component accounts for a significant portion of the variance (~20%)
+# Preferred that first 3 components accounts for at least 90% 
 # Continue for the sake of practicing the concept, but do not rely on for accurate analysis
 
-# Check whether enough variance is still accounted for
+# Plot on 2D plot
+newCoords <- as.data.frame(pcaSummary$x)
+library(ggplot2)
+ggplot(newCoords, aes(x=PC1,y=PC2))+
+  geom_point(color = "red")
+uniqueCoords2D <- sum(!duplicated(newCoords[,1:2])) 
+
+# Plor on 3D plot
+# Generates a plot with roughly 4 groups of planes and ~6 outliers
+library(plotly)
+plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
+                marker = list(size = 3))
+uniqueCoords3D <- sum(!duplicated(newCoords[,1:3]))
+
+# WARNING: Checking for unique points in any combination of dimensionals always results in 175, can be indicating issue
+uniqueCoords<-plyr::count(newCoords[,1:3])
+sum(test$freq)
+cat("Number of Points Not Displayed Due to Overlap: ",nRows - nrow(uniqueCoords))
+
 
 
 
