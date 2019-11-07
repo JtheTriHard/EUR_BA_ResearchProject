@@ -107,7 +107,7 @@ cat("Proportion of Variance Not Accounted for: ",pcaSummary$importance[2,4])
 
 # Biplot for first two components
 biplot(pcaResults)
-# observation 99 is a significant outlier. Age is very similar to PC1 and neighborhood (random) is very similar to PC2
+# observation 55, 99 is a significant outlier
 # TO DO: Figure out how to display var lines on 3D plot?
 
 # WARNING: The fourth component accounts for a significant portion of the variance (~20%)
@@ -116,6 +116,7 @@ biplot(pcaResults)
 
 # Plot on 2D plot
 newCoords <- as.data.frame(pcaSummary$x)
+newCoords <- newCoords[c("PC1","PC2","PC3")]
 library(ggplot2)
 ggplot(newCoords, aes(x=PC1,y=PC2))+
   geom_point(color = "red")
@@ -153,17 +154,57 @@ unique_OG <- plyr::count(reducedDF)
 #
 #---------------------------------------------------
 
-# Use K-Means clustering with a convergence condition of
-
-
 
 # Check for most effective number of clusters
 
+set.seed(123)
+# function to compute total within-cluster sum of square 
+wss <- function(k) {
+  kmeans(newCoords, k, nstart = 25 )$tot.withinss
+}
+# Compute and plot wss for k = 1 to k = 15
+k.values <- 1:10
+# extract wss for 2-15 clusters
+wss_values <- purrr::map_dbl(k.values, wss)
+# Plot elbow method. No clear elbow but a choice of 4 seems appropriate
+plot(k.values, wss_values,
+     type="b", pch = 19, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
 
+
+
+# Use K-Means clustering for k = 
+kMeansResult <- kmeans(newCoords, centers = 2, nstart = 25)
 
 # Plot color-coded result
+newCoords$Cluster <- kMeansResult$cluster
+newCoords$Cluster <- as.factor(newCoords$Cluster)
+plotly::plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
+        color = ~Cluster,
+        marker = list(size = 3))
+
+# Add cluster assignment to original dataset
+dsBikeContract$Cluster <- newCoords$Cluster
+
+# Plot explanatory vars separately for each cluster
+# Plotly is known to have issues plotting within loops. Plotted without loop due to low amount of clusters
+
+dsTemp <- subset(dsBikeContract, Cluster == 1)
+plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
+                size = ~IntentContract,
+                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))
+
+dsTemp <- subset(dsBikeContract, Cluster == 2)
+plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
+                size = ~IntentContract,
+                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))
+
+# Alternative:
 
 
+
+# Alternative: Cluster using the planes formed in the 3D PCA result (usually 2-4)
 
 #---------------------------------------------------
 #
