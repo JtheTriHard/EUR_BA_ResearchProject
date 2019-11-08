@@ -10,12 +10,14 @@
 #install.packages("devtools", dependencies = TRUE)
 #install.packages("plotly",dependencies = TRUE)
 #install.packages("plyr",dependencies = TRUE)
+#install.packages("fpc", dependencies = TRUE)
+#install.packages("dbscan", dependencies = TRUE)
 
 # Load data
 dsBikeContract <- read.csv(file="~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE)
 nInitialObs <- nrow(dsBikeContract)
 
-
+set.seed(123)
 
 #---------------------------------------------------
 #
@@ -69,6 +71,7 @@ for (i in 1:nRows){
 
 # Location (See report for assignments)
 dsBikeContract$Neighborhood <- sample(1:12,nRows, replace = TRUE) #randomly assigned for testing purposes
+#dsBikeContract$Neighborhood <- dsBikeContract$cLocate
 
 # Gender (1 = M, 2 = F): dGender
 
@@ -155,9 +158,9 @@ unique_OG <- plyr::count(reducedDF)
 #---------------------------------------------------
 
 
-# Check for most effective number of clusters
 
-set.seed(123)
+# K MEANS
+
 # function to compute total within-cluster sum of square 
 wss <- function(k) {
   kmeans(newCoords, k, nstart = 25 )$tot.withinss
@@ -171,8 +174,6 @@ plot(k.values, wss_values,
      type="b", pch = 19, frame = FALSE, 
      xlab="Number of clusters K",
      ylab="Total within-clusters sum of squares")
-
-
 
 # Use K-Means clustering for k = 
 kMeansResult <- kmeans(newCoords, centers = 2, nstart = 25)
@@ -189,6 +190,7 @@ dsBikeContract$Cluster <- newCoords$Cluster
 
 # Plot explanatory vars separately for each cluster
 # Plotly is known to have issues plotting within loops. Plotted without loop due to low amount of clusters
+# See https://github.com/ropensci/plotly/issues/273 for solution
 
 dsTemp <- subset(dsBikeContract, Cluster == 1)
 plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
@@ -200,11 +202,27 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
                 size = ~IntentContract,
                 marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))
 
-# Alternative:
+
+
+# Alternative: DBSCAN Clustering
+
+# Determine optimal epsilon
+dbscan::kNNdistplot(newCoords[,1:3], k = 5) #knee occurs around eps = 1
+# Run dbscan
+dbscanResult <- fpc::dbscan(newCoords[,1:3], eps = 1, MinPts = 5)
+# Assign clusters
+newCoords$Cluster_dbscan <- factor(dbscanResult$cluster)
+# Plot
+plotly::plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
+                color = ~Cluster_dbscan,
+                marker = list(size = 3))
 
 
 
 # Alternative: Cluster using the planes formed in the 3D PCA result (usually 2-4)
+
+
+
 
 #---------------------------------------------------
 #
