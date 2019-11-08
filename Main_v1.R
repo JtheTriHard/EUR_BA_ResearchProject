@@ -129,7 +129,8 @@ uniqueCoords2D <- sum(!duplicated(newCoords[,1:2]))
 # Generates a plot with roughly 4 groups of planes and ~6 outliers
 library(plotly)
 plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
-                marker = list(size = 3))
+                marker = list(size = 3))%>%
+  layout(title = 'Survey Data After PCA')
 uniqueCoords3D <- sum(!duplicated(newCoords[,1:3]))
 
 
@@ -142,13 +143,14 @@ cat("Number of Points Not Displayed Due to Overlap: ",nRows - nrow(uniqueCoords)
 
 # Explore original data to check for possible causes of issues
 plot_ly(dsBikeContract,x = ~Age, y = ~HrPWork, z = ~dGender,
-        marker = list(size = 3))
+        marker = list(size = 3))%>%
+  layout(title = 'Original Survey Data, Not Accounting For Neighborhood')
 reducedDF <- dsBikeContract[c("Age","HrPWork","dGender")]
 unique_OG <- plyr::count(reducedDF)
 # There are only 33 unique points out of the 412
 # when only considering Age,Work,Gender (Neighborhood was randomized, and thus left out)
 # The majority form lines in the 3D space, due to the scales of the var
-# Thus likely the cause of the planes occurring in the PCA plot
+# Thus likely the cause of the planes occurring in the PCA plot (dependency within control vars?)
 
 
 #---------------------------------------------------
@@ -179,14 +181,15 @@ plot(k.values, wss_values,
 kMeansResult <- kmeans(newCoords, centers = 2, nstart = 25)
 
 # Plot color-coded result
-newCoords$Cluster <- kMeansResult$cluster
-newCoords$Cluster <- as.factor(newCoords$Cluster)
+newCoords$Cluster_kmeans <- as.factor(kMeansResult$cluster)
 plotly::plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
-        color = ~Cluster,
-        marker = list(size = 3))
+        color = ~Cluster_kmeans,
+        marker = list(size = 3)) %>%
+  layout(title = 'K-Means Clustering')
 
 # Add cluster assignment to original dataset
-dsBikeContract$Cluster <- newCoords$Cluster
+dsBikeContract$Cluster <- factor(newCoords$Cluster_kmeans)
+
 
 # Plot explanatory vars separately for each cluster
 # Plotly is known to have issues plotting within loops. Plotted without loop due to low amount of clusters
@@ -195,12 +198,14 @@ dsBikeContract$Cluster <- newCoords$Cluster
 dsTemp <- subset(dsBikeContract, Cluster == 1)
 plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
                 size = ~IntentContract,
-                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))
+                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
+  layout(title = 'Survey Data, K-Means Cluster 1')
 
 dsTemp <- subset(dsBikeContract, Cluster == 2)
 plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
                 size = ~IntentContract,
-                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))
+                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
+  layout(title = 'Survey Data, K-Means Cluster 2')
 
 
 
@@ -215,17 +220,28 @@ newCoords$Cluster_dbscan <- factor(dbscanResult$cluster)
 # Plot
 plotly::plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
                 color = ~Cluster_dbscan,
-                marker = list(size = 3))
+                marker = list(size = 3))%>%
+  layout(title = 'DBSCAN Clustering')
+dsBikeContract$Cluster_dbscan <- factor(newCoords$Cluster_dbscan)
 
 
 
 # Alternative: Cluster using the planes formed in the 3D PCA result (usually 2-4)
+# requires ransac?
+# may need to repurpose packages meant for computer vision feature detection
+
+#---------------------------------------------------
+#
+#                   4. Analysis
+#
+#---------------------------------------------------
+
 
 
 
 
 #---------------------------------------------------
 #
-#                   4. Analysis
+#                 5. Prediction
 #
 #---------------------------------------------------
