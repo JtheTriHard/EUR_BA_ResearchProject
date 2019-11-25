@@ -49,6 +49,8 @@ data.table::setnames(dsAll,
                              'nPsych1','nPsych2','nPsych3','nPsych4','nPsych5','cExtend','nSign','cReason','Email'))
 
 # Convert likert values to numeric
+# Issues will likely arise from the fact that some vars do not have entries covering the full 1-5 range
+
 likertVars <- c('Env1','Env2','Env3','Env4','Env5','cPsych1','cPsych2','cPsych3','cPsych4','cPsych5',
                 'nPsych1','nPsych2','nPsych3','nPsych4','nPsych5')
 dsLikert <- dsAll[likertVars]
@@ -63,7 +65,7 @@ dsLikert <- dsLikert %>%
       "Strongly agree"    = 5
     ))
   )
-
+remove(dsLikert)
 # Cronbach alpha analysis
 a.Env <- psych::alpha(dsLikert[c("Env1","Env2","Env3","Env4","Env5")],check.keys=TRUE,cumulative = FALSE)
 a.cPsych <- psych::alpha(dsLikert[c("cPsych1","cPsych2","cPsych3","cPsych4","cPsych5")],check.keys=TRUE,cumulative = FALSE)
@@ -78,49 +80,65 @@ dsAll$nPsych <- a.nPsych$scores
 dsAll$Work[9] <- "22.5" #Hard-coded adjustment for single incorrect input
 
 toNum <-c("Age","Work","cSwapUsed","nBikeUsed")
-toFact <- c("Contract","nFamiliar","NL","Gender","Student","Home","Education","cType")
+toFact <- c("Contract","nFamiliar","NL","Gender","Student","Home","Education","cType","cExtend","nSign","cContractLength")
+dsAll[toNum] <- lapply(dsAll[toNum], as.numeric)
+dsAll[toFact] <- lapply(dsAll[toFact],as.factor)
 
 
 # Remove respondents not aware of Swapfiets
+dsAll <- dsAll[dsAll$nFamiliar != "No",]
 
 # Remove respondents not living in the Netherlands
+dsAll <- dsAll[dsAll$NL != "No",]
 
 # Remove respondents with Gender = Other (Insignificant sample size)
+dsAll <- dsAll[dsAll$Gender != "Other/prefer not to disclose",]
 
 # Check n of respondents that are not students
-
+table(dsAll$Student)
 # Remove non-student respondents if not many
+dsAll <- dsAll[dsAll$Student != "No",]
 
 # Convert yr of birth to age
+dsAll$Age[7] <- 25 #Hard-coded adjustment for single incorrect input
+dsAll <- dsAll[is.na(dsAll$Age) == FALSE,]
 curYr = 2019
-dsAll$Age <- curYr - dsAll$Age
+dsAll <- mutate(dsAll, Age = ifelse(Age > 1900, curYr - Age, Age)) # accounts for respondents that put in age instead of birth yr
 
 # Convert hrs worked to employment
+dsAll <- 
+  mutate(dsAll, Work = case_when(is.na(Work) == TRUE ~ "NA",
+                                 Work >= 30 ~ "Full",
+                                 Work < 1 ~ "Unemployed",
+                                 TRUE ~ "Part"))
+dsAll$Work <- as.factor(dsAll$Work)
 
-for (i in 1:nRows){
-  if (dsAll$Work[i] >= 35){
-    dsContract$HrPWork[i] <- as.factor("Full")
-  }
-  else if (dsContract$HrPWork[i] <35 && dsContract$HrPWork[i] > 0){
-    dsContract$HrPWork[i] <- as.factor("Part")
-  }
-  else{
-    dsContract$HrPWork[i] <- as.factor("Unemployed")
-  }
-}
-
-
-# Separate dependent on whether they have a contract
+# Create df of contract respondents
 dsContract <- dsAll[dsAll$Contract == "Yes",]
+cVars <- c("Gender","Age","Work","Home","Education","cType","cSwapUsed","cContractLength","Env","cPsych","cExtend")
+dsContract <- dsContract[,cVars]
+# Replace all cSwapUsed NA w/ column mean
+temp <- mean(dsContract$cSwapUsed,na.rm = TRUE)
+dsContract <- mutate(dsContract, cSwapUsed = ifelse(is.na(cSwapUsed) == TRUE, temp, cSwapUsed))
+
+# Create df of no contract respondents
 dsNoContract <- dsAll[dsAll$Contract == "No",]
+nVars <- c("Gender","Age","Work","Home","Education","nBikeUsed","Env","nPsych","nSign")
+dsNoContract <- dsNoContract[,nVars]
 
 
-# Save summary of non-normalized data (may not work due to factors)
+# Save summary of numerical data
 stargazer::stargazer(dsContract,
                      align = TRUE ,
                      digits=2,
                      type = "html",
-                     out = "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Results/dsSummary.doc")
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/ContractTable.doc")
+
+stargazer::stargazer(dsNoContract,
+                     align = TRUE ,
+                     digits=2,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/NoContractTable.doc")
 
 #---------------------------------------------------
 #
