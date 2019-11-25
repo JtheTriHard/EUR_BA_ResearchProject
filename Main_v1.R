@@ -1,29 +1,77 @@
 # Author: JTheTriHard
-# Test Version
+# Final version
 
 # Install necessary packages
-#install.packages("Hmisc",dependencies = TRUE)
 #install.packages("psych",dependencies = TRUE)
 #install.packages("stargazer", dependencies = TRUE)
-#install.packages("lm.beta", dependencies = TRUE )
 #install.packages("tidyverse",dependencies = TRUE)
-#install.packages("devtools", dependencies = TRUE)
 #install.packages("plotly",dependencies = TRUE)
-#install.packages("plyr",dependencies = TRUE)
 #install.packages("fpc", dependencies = TRUE)
 #install.packages("dbscan", dependencies = TRUE)
+#install.packages("plyr",dependencies = TRUE)
+
+
+#install.packages("Hmisc",dependencies = TRUE)
+#install.packages("lm.beta", dependencies = TRUE )
+#install.packages("devtools", dependencies = TRUE)
+
+
 set.seed(123)
 
 # Load data
-dsAll <- read.csv(file="~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE)
-initialObsContract <- sum(dsAll$Contract==TRUE)
-initialObsNo <- sum(dsAll$Contract==FALSE)
+dsTest <- read.csv(file=
+                     "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE) # Example dataset provided
+dsAll <- read.csv(file=
+                    "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults.csv",stringsAsFactors=FALSE) # Actual results
+# Remove rows not corresponding to respondents, do not re-run
+dsAll <- dsAll[-c(1:2),]
+
 
 #---------------------------------------------------
 #
 #             1. Data Preparation
 #
 #---------------------------------------------------
+
+library(tidyverse)
+# Rename survey vars
+# A var prefix of c denotes contract, an n denotes no contract
+data.table::setnames(dsAll, 
+                     old = c('X2','Q20','X3','X4','X5','X6','Q17','X7','X8','X9','X10_1','Q21_1','X11',
+                             'X12_1','X12_2','X12_3','X12_4','X12_5','X13_1','X13_2','X13_3','X13_4','X13_5',
+                             'Q18_1','Q18_2','Q18_3','Q18_4','Q18_5','X14','Q19','X15','Q22'), 
+                     new = c('Contract','nFamiliar','NL','Gender','Age','Student','Work','Home','Education','cType','cSwapUsed','nBikeUsed','cContractLength',
+                             'Env1','Env2','Env3','Env4','Env5','cPsych1','cPsych2','cPsych3','cPsych4','cPsych5',
+                             'nPsych1','nPsych2','nPsych3','nPsych4','nPsych5','cExtend','nSign','cReason','Email'))
+
+# Convert likert scale and run reliability analysis
+likertVars <- c('Env1','Env2','Env3','Env4','Env5','cPsych1','cPsych2','cPsych3','cPsych4','cPsych5',
+                'nPsych1','nPsych2','nPsych3','nPsych4','nPsych5')
+dsLikert <- dsAll[likertVars]
+dsLikert <- dsLikert %>%
+  #mutate_all(~ str_replace(., "^$", NA_character_)) %>%
+  mutate_all(
+    .funs = ~ as.integer(recode(
+      .x = .,
+      "Strongly disagree" = 1,
+      "Somewhat disagree" = 2,
+      "Neither agree nor disagree" = 3,
+      "Somewhat agree"    = 4,
+      "Strongly agree"    = 5
+    ))
+  )
+
+dsAll$Env <- psych::alpha(dsLikert[c("Env1","Env2","Env3","Env4","Env5")],check.keys=TRUE,cumulative = FALSE)$scores
+dsAll$cPsych <- psych::alpha(dsLikert[c("cPsych1","cPsych2","cPsych3","cPsych4","cPsych5")],check.keys=TRUE,cumulative = FALSE)$scores
+dsAll$nPsych <- psych::alpha(dsLikert[c("nPsych1","nPsych2","nPsych3","nPsych4","nPsych5")],check.keys=TRUE,cumulative = FALSE)$scores
+
+# Separate dependent on whether they have a contract
+dsContract <- dsAll[dsAll$Contract == "Yes",]
+dsNoContract <- dsAll[dsAll$Contract == "No",]
+
+
+# ID types of vars
+cNumVars <- c("Age","Work","cSwapUsed","cContractLength")
 
 # Remove respondents not aware of Swapfiets
 
@@ -117,7 +165,7 @@ dsContract$Bike <- sample(1:3,nRows, replace = TRUE) # randomly assigned for tes
 numVars <- c()
 catVars <- c()
 # Create set of respondents with contract
-dsContract <- dplyr::filter(dsAll, dsAll$Contract == TRUE)
+dsContract <- dplyr::filter(dsTest, dsTest$Contract == TRUE)
 
 # Remove NaN entries
 # Find rows/columns of datasets
@@ -135,7 +183,7 @@ catVars2 <- c()
 
 
 # Create set of respondents without contract
-dsNoContract <- dplyr::filter(dsAll, dsAll$Contract == FALSE)
+dsNoContract <- dplyr::filter(dsTest, dsTest$Contract == FALSE)
 
 # Remove respondents with NaN entries
 dsContract <- na.omit(dsContract)
