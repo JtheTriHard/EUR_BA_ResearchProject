@@ -23,6 +23,9 @@ dsTest <- read.csv(file=
                      "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE) # Example dataset provided
 dsAll <- read.csv(file=
                     "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults.csv",stringsAsFactors=FALSE) # Actual results
+
+# ~ first 20 results to be thrown out due to survey changes
+
 # Remove rows not corresponding to respondents, do not re-run
 dsAll <- dsAll[-c(1:2),]
 
@@ -34,6 +37,7 @@ dsAll <- dsAll[-c(1:2),]
 #---------------------------------------------------
 
 library(tidyverse)
+
 # Rename survey vars
 # A var prefix of c denotes contract, an n denotes no contract
 data.table::setnames(dsAll, 
@@ -44,12 +48,11 @@ data.table::setnames(dsAll,
                              'Env1','Env2','Env3','Env4','Env5','cPsych1','cPsych2','cPsych3','cPsych4','cPsych5',
                              'nPsych1','nPsych2','nPsych3','nPsych4','nPsych5','cExtend','nSign','cReason','Email'))
 
-# Convert likert scale and run reliability analysis
+# Convert likert values to numeric
 likertVars <- c('Env1','Env2','Env3','Env4','Env5','cPsych1','cPsych2','cPsych3','cPsych4','cPsych5',
                 'nPsych1','nPsych2','nPsych3','nPsych4','nPsych5')
 dsLikert <- dsAll[likertVars]
 dsLikert <- dsLikert %>%
-  #mutate_all(~ str_replace(., "^$", NA_character_)) %>%
   mutate_all(
     .funs = ~ as.integer(recode(
       .x = .,
@@ -61,17 +64,22 @@ dsLikert <- dsLikert %>%
     ))
   )
 
-dsAll$Env <- psych::alpha(dsLikert[c("Env1","Env2","Env3","Env4","Env5")],check.keys=TRUE,cumulative = FALSE)$scores
-dsAll$cPsych <- psych::alpha(dsLikert[c("cPsych1","cPsych2","cPsych3","cPsych4","cPsych5")],check.keys=TRUE,cumulative = FALSE)$scores
-dsAll$nPsych <- psych::alpha(dsLikert[c("nPsych1","nPsych2","nPsych3","nPsych4","nPsych5")],check.keys=TRUE,cumulative = FALSE)$scores
+# Cronbach alpha analysis
+a.Env <- psych::alpha(dsLikert[c("Env1","Env2","Env3","Env4","Env5")],check.keys=TRUE,cumulative = FALSE)
+a.cPsych <- psych::alpha(dsLikert[c("cPsych1","cPsych2","cPsych3","cPsych4","cPsych5")],check.keys=TRUE,cumulative = FALSE)
+a.nPsych <- psych::alpha(dsLikert[c("nPsych1","nPsych2","nPsych3","nPsych4","nPsych5")],check.keys=TRUE,cumulative = FALSE)
 
-# Separate dependent on whether they have a contract
-dsContract <- dsAll[dsAll$Contract == "Yes",]
-dsNoContract <- dsAll[dsAll$Contract == "No",]
+# Construct likert scores
+dsAll$Env <- a.Env$scores
+dsAll$cPsych <- a.cPsych$scores
+dsAll$nPsych <- a.nPsych$scores
 
+# Convert vars to proper type
+dsAll$Work[9] <- "22.5" #Hard-coded adjustment for single incorrect input
 
-# ID types of vars
-cNumVars <- c("Age","Work","cSwapUsed","cContractLength")
+toNum <-c("Age","Work","cSwapUsed","nBikeUsed")
+toFact <- c("Contract","nFamiliar","NL","Gender","Student","Home","Education","cType")
+
 
 # Remove respondents not aware of Swapfiets
 
@@ -79,123 +87,40 @@ cNumVars <- c("Age","Work","cSwapUsed","cContractLength")
 
 # Remove respondents with Gender = Other (Insignificant sample size)
 
-# CONTROL VARS
-
-# Age (Survey requests yr of birth)
-curYr = 2019
-dsContract$Age <- curYr - dsContract$YrBirth
-
-# Enrollment Status
 # Check n of respondents that are not students
-ggplot2::ggplot(dsContract)
-# Remove non-student respondents if not many
-dsContract$Enroll <- TRUE
 
-# Employment (Survey asks for hrs worked per week)
-# (1 = NA, 2 = Part Time, 3 = Full Time)
+# Remove non-student respondents if not many
+
+# Convert yr of birth to age
+curYr = 2019
+dsAll$Age <- curYr - dsAll$Age
+
+# Convert hrs worked to employment
+
 for (i in 1:nRows){
-  if (dsContract$HrPWork[i] >= 35){
-    dsContract$HrPWork[i] <- 3
+  if (dsAll$Work[i] >= 35){
+    dsContract$HrPWork[i] <- as.factor("Full")
   }
   else if (dsContract$HrPWork[i] <35 && dsContract$HrPWork[i] > 0){
-    dsContract$HrPWork[i] <- 2
+    dsContract$HrPWork[i] <- as.factor("Part")
   }
   else{
-    dsContract$HrPWork[i] <- 1
+    dsContract$HrPWork[i] <- as.factor("Unemployed")
   }
 }
 
-# Location (See report for assignments)
-dsContract$Neighborhood <- dsContract$cLocate
 
-# Gender (1 = M, 2 = F): dGender
-
-# Education Level
-dsContract$Education <- sample(1:6, nRows, replace = TRUE) # randomly assigned for testing purposes
-
-# Employment (1 = NA, 2 = Part-Time, 3 = Full-Time)
-
-# EXPLANATORY VARS
-
-# Create likert indicator as an average of the scores
-allPsychOwn <- c("PsychOwn01", "PsychOwn02", "PsychOwn03","PsychOwn04")
-dsContract$PsychOwn <- psych::alpha(dsContract[allPsychOwn],check.keys=TRUE,cumulative = FALSE)$scores
-
-# Create likert indicator as an average of the scores
-allEnv <- c("PsychOwn01", "PsychOwn02", "PsychOwn03","PsychOwn04")
-dsContract$PsychOwn <- psych::alpha(dsContract[myPsychOwn],check.keys=TRUE,cumulative = FALSE)$scores
-
-# Minimum length of contract (1, 3, or 6 months)
-dsContract$MinLength <- sample(seq(from = 0, to = 6, by = 3),nRows, replace = TRUE) # randomly assigned for testing purposes
-for (i in 1:nRows){
-  if (dsContract$MinLength[i]==0){
-    dsContract$MinLength[i] <- 1
-  }
-}
-
-# Frequency of use
-
-# IF SWAPFIETS CONTRACT
-# Type of Swapfiets
-dsContract$Bike <- sample(1:3,nRows, replace = TRUE) # randomly assigned for testing purposes
-
-# Regular Use (0 = TRUE, 1 = FALSE)
-dsContract$UseFreq <- sample(0:1,nRows, replace = TRUE) # randomly assigned for testing purposes
-
-# Length of Current Contract
-dsContract$Contract <- sample(1:5,nRows, replace = TRUE) # randomly assigned for testing purposes
+# Separate dependent on whether they have a contract
+dsContract <- dsAll[dsAll$Contract == "Yes",]
+dsNoContract <- dsAll[dsAll$Contract == "No",]
 
 
-# TARGET VAR
-
-# Intent to extend contract
-dsContract$Extend <- sample(0:1,nRows, replace = TRUE) # randomly assigned for testing purposes
-
-# Justification
-dsContract$Extend <- sample(0:4,nRows, replace = TRUE) # randomly assigned for testing purposes
-
-# Remove all unused variables from test dataset
-dsContract <- dplyr::select(dsContract,PsychOwn,UseFreq,MinLength,Age,HrPWork,Neighborhood,dGender,IntentContract)
-
-# IF SWAPFIETS CONTRACT
-# Type of Swapfiets (Control)
-dsContract$Bike <- sample(1:3,nRows, replace = TRUE) # randomly assigned for testing purposes
-
-# ID var types
-numVars <- c()
-catVars <- c()
-# Create set of respondents with contract
-dsContract <- dplyr::filter(dsTest, dsTest$Contract == TRUE)
-
-# Remove NaN entries
-# Find rows/columns of datasets
-nRows <- nrow(dsContract) # num of observations
-nCols <- ncol(dsContract) # num of vars
-cat("Number of responses removed from customer dataset: ",initialObsContract-nRows,"\n")
-
-
-
-# IF NO SWAPFIETS CONTRACT
-
-# Numerical vars
-numVars2 <- c()
-catVars2 <- c()
-
-
-# Create set of respondents without contract
-dsNoContract <- dplyr::filter(dsTest, dsTest$Contract == FALSE)
-
-# Remove respondents with NaN entries
-dsContract <- na.omit(dsContract)
-
-# Save summary of non-normalized data
+# Save summary of non-normalized data (may not work due to factors)
 stargazer::stargazer(dsContract,
                      align = TRUE ,
                      digits=2,
                      type = "html",
                      out = "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Results/dsSummary.doc")
-
-
 
 #---------------------------------------------------
 #
@@ -346,7 +271,7 @@ dsContract$Cluster_dbscan <- factor(newCoords$Cluster_dbscan)
 
 #---------------------------------------------------
 #
-#                   4. Analysis
+#             4. Statistical Analysis
 #
 #---------------------------------------------------
 
@@ -359,3 +284,7 @@ dsContract$Cluster_dbscan <- factor(newCoords$Cluster_dbscan)
 #                 5. Prediction
 #
 #---------------------------------------------------
+
+# Training method: Leave-One-Out Cross Validation
+
+# Prediction method:
