@@ -11,6 +11,9 @@
 #install.packages("plyr",dependencies = TRUE)
 #install.packages(c("FactoMineR", "factoextra"), dependencies = TRUE)
 #install.packages("clustMixType", dependencies = TRUE)
+#install.packages("corrgram", dependencies = TRUE)
+#install.packages("corrplot", dependencies = TRUE)
+
 
 #install.packages("Hmisc",dependencies = TRUE)
 #install.packages("lm.beta", dependencies = TRUE )
@@ -156,7 +159,7 @@ stargazer::stargazer(dsNoContract,
 
 # FAMD
 cCtrlVars <- dplyr::select(dsContract,Gender,Age,Work,Home,Education,cType)
-cFAMDResults <- FactoMineR::FAMD(cCtrlVars,ncp = 7, graph=TRUE)
+cFAMDResults <- FactoMineR::FAMD(cCtrlVars,ncp = 11, graph=TRUE)
 factoextra::fviz_screeplot(cFAMDResults)
 print(factoextra::get_eigenvalue(cFAMDResults))
 
@@ -314,14 +317,28 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
 
 # The following uses the original data (no FAMD, clustering).
 # If the addition of data results in reasonable clustering, 
-# then the following sections will be adjusted to be performed within each cluster
-
-# Correlation between vars
-
-# Multivariate Regression Analysis
-
-# Hypothesis testing: Check influence of all vars aside from the target var
+# then the following sections will be adjusted to be performed within each cluster.
 # Ideally we only care about the explanatory vars, but will check the ctrl vars in any ends up being unexpectedly influential 
+
+
+# Correlation between vars. Reveals reasonable correlation btw Age and cPsych
+numVars <- c("Age","cSwapUsed","Env","cPsych")
+corrgram::corrgram(dsContract[,numVars])
+corMtx <- cor(dsContract[,numVars])
+corrplot::corrplot(corMtx)
+# look into mixed.cor.
+# May need to use results from regression analysis to plot relationships
+
+# Model for ctrls only
+
+# Model for all
+
+# Confidence intervals
+
+# Hypothesis testing
+# Determine the influence of all vars and of only the ctrl vars
+# Use coeff-F. Only checks for linear relationships
+# anova-chi requires normal distribution of vars, which doesn't occur
 
 
 
@@ -339,11 +356,33 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
 
 # Classification Tree
 
-# Determine performance
+# Random Forest
 
-# Adjust models for var differences btw Contract $ NoContract
+# GBM
+
+# Determine and compare performance
+
+# Check for overfitting
+# Cross Validation?
+
+# Adjust models for var differences btw Contract & NoContract
 
 # Predict nSign and determine performance
+
+
+
+
+#---------------------------------------------------
+#
+#                 6. Limitations
+#
+#---------------------------------------------------
+
+# Insufficient sample size
+
+# 
+
+# Hypothesis tests only check for linear relationships
 
 
 #---------------------------------------------------
