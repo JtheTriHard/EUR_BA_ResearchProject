@@ -18,11 +18,12 @@
 
 set.seed(123)
 
-# Load data
+# Example dataset used for initial testing
 # dsTest <- read.csv(file=
-#                      "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE) # Example dataset provided
+#                      "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE) 
+# Qualtrics raw survey data
 dsAll <- read.csv(file=
-                    "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults.csv",stringsAsFactors=FALSE) # Actual results
+                    "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults.csv",stringsAsFactors=FALSE)
 
 # ~ first 20 results to be thrown out due to survey changes
 
@@ -83,7 +84,6 @@ toFact <- c("Contract","nFamiliar","NL","Gender","Student","Home","Education","c
 dsAll[toNum] <- lapply(dsAll[toNum], as.numeric)
 dsAll[toFact] <- lapply(dsAll[toFact],as.factor)
 
-
 # Remove respondents not aware of Swapfiets
 dsAll <- dsAll[dsAll$nFamiliar != "No",]
 
@@ -142,6 +142,8 @@ stargazer::stargazer(dsNoContract,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/NoContractTable.doc")
 
+
+
 #---------------------------------------------------
 #
 #             2. Dimension Reduction
@@ -149,10 +151,8 @@ stargazer::stargazer(dsNoContract,
 #---------------------------------------------------
 
 # FAMD
-# Leave explanatory vars attached
-
 cCtrlVars <- dplyr::select(dsContract,Gender,Age,Work,Home,Education,cType)
-cFAMDResults <- FactoMineR::FAMD(cCtrlVars,ncp = 6, graph=TRUE)
+cFAMDResults <- FactoMineR::FAMD(cCtrlVars,ncp = 7, graph=TRUE)
 factoextra::fviz_screeplot(cFAMDResults)
 print(factoextra::get_eigenvalue(cFAMDResults))
 
@@ -185,33 +185,57 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,marker = list(size = 
 
 
 # K MEANS
+# Only usable for FAMD coords. Categorical nature of original vars voids usefulness
 
 # function to compute total within-cluster sum of square 
 wss <- function(k) {
-  kmeans(newCoords, k, nstart = 25 )$tot.withinss
+  kmeans(cCoords, k, nstart = 20 )$tot.withinss
 }
-# Compute and plot wss for k = 1 to k = 15
+
+# Compute and plot wss for k = 1 to k = 10
 k.values <- 1:10
 # extract wss for 2-15 clusters
 wss_values <- purrr::map_dbl(k.values, wss)
-# Plot elbow method. No clear elbow but a choice of 4 seems appropriate
+# Plot elbow method. No clear elbow but a choice of 5 seems appropriate
 plot(k.values, wss_values,
      type="b", pch = 19, frame = FALSE, 
      xlab="Number of clusters K",
      ylab="Total within-clusters sum of squares")
 
-# Use K-Means clustering for k = 2
-kMeansResult <- kmeans(newCoords, centers = 2, nstart = 25)
+# Use K-Means clustering for k = 5
+kMeansResult <- kmeans(cCoords, centers = 5, nstart = 25)
 
 # Plot color-coded result
-newCoords$Cluster_kmeans <- as.factor(kMeansResult$cluster)
-plotly::plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
+cCoords$Cluster_kmeans <- as.factor(kMeansResult$cluster)
+plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
                 color = ~Cluster_kmeans,
                 marker = list(size = 3)) %>%
-  layout(title = 'K-Means Clustering')
+  plotly::layout(title = 'K-Means Clustering')
 
 # Add cluster assignment to original dataset
-dsContract$Cluster <- factor(newCoords$Cluster_kmeans)
+dsContract$Cluster.Kmeans <- factor(cCoords$Cluster_kmeans)
+
+
+
+
+# Alternative: DBSCAN Clustering
+# WARNING: Does not work at the moment due to low amount of data points
+
+# Determine optimal epsilon
+dbscan::kNNdistplot(cCoords[,1:3], k = 2) #knee occurs around eps = 1
+# Run dbscan
+dbscanResult <- fpc::dbscan(cCoords[,1:3], eps = 0.8, MinPts = 2)
+# Assign clusters
+cCoords$Cluster_dbscan <- factor(dbscanResult$cluster)
+# Plot
+plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
+                color = ~Cluster_dbscan,
+                marker = list(size = 3))%>%
+  plotly::layout(title = 'DBSCAN Clustering')
+dsContract$Cluster.DBSCAN <- factor(cCoords$Cluster_dbscan)
+
+
+
 
 
 # Plot explanatory vars separately for each cluster
@@ -230,38 +254,13 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
                 marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
   layout(title = 'Survey Data, K-Means Cluster 2')
 
-
-
-# Alternative: DBSCAN Clustering
-
-# Determine optimal epsilon
-dbscan::kNNdistplot(newCoords[,1:3], k = 5) #knee occurs around eps = 1
-# Run dbscan
-dbscanResult <- fpc::dbscan(newCoords[,1:3], eps = 0.8, MinPts = 5)
-# Assign clusters
-newCoords$Cluster_dbscan <- factor(dbscanResult$cluster)
-# Plot
-plotly::plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
-                color = ~Cluster_dbscan,
-                marker = list(size = 3))%>%
-  layout(title = 'DBSCAN Clustering')
-dsContract$Cluster_dbscan <- factor(newCoords$Cluster_dbscan)
-
-
-
-# Alternative: Cluster using the planes formed in the 3D PCA result (usually 2-4)
-# requires ransac?
-# may need to repurpose packages meant for computer vision feature detection
-
-
-
 #---------------------------------------------------
 #
 #             4. Statistical Analysis
 #
 #---------------------------------------------------
 
-
+# The following uses the original data (no FAMD, clustering)
 
 
 
@@ -280,7 +279,7 @@ dsContract$Cluster_dbscan <- factor(newCoords$Cluster_dbscan)
 
 #---------------------------------------------------
 #
-#                   5. Removed
+#                   6. Removed
 #
 #---------------------------------------------------
 
