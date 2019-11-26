@@ -10,7 +10,7 @@
 #install.packages("dbscan", dependencies = TRUE)
 #install.packages("plyr",dependencies = TRUE)
 #install.packages(c("FactoMineR", "factoextra"), dependencies = TRUE)
-
+#install.packages("clustMixType", dependencies = TRUE)
 
 #install.packages("Hmisc",dependencies = TRUE)
 #install.packages("lm.beta", dependencies = TRUE )
@@ -182,7 +182,8 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,marker = list(size = 
 #
 #---------------------------------------------------
 
-
+# WARNING: Go through after obtaining more data and check n of clusters
+# TO DO: Change point shape in 3D plots based on cExtend
 
 # K MEANS
 # Only usable for FAMD coords. Categorical nature of original vars voids usefulness
@@ -202,8 +203,8 @@ plot(k.values, wss_values,
      xlab="Number of clusters K",
      ylab="Total within-clusters sum of squares")
 
-# Use K-Means clustering for k = 5
-kMeansResult <- kmeans(cCoords, centers = 5, nstart = 25)
+# Use K-Means clustering for k = 
+kMeansResult <- kmeans(cCoords, centers = 6, nstart = 25)
 
 # Plot color-coded result
 cCoords$Cluster_kmeans <- as.factor(kMeansResult$cluster)
@@ -217,14 +218,13 @@ dsContract$Cluster.Kmeans <- factor(cCoords$Cluster_kmeans)
 
 
 
-
-# Alternative: DBSCAN Clustering
+# Alternative: DBSCAN 
 # WARNING: Does not work at the moment due to low amount of data points
 
 # Determine optimal epsilon
-dbscan::kNNdistplot(cCoords[,1:3], k = 2) #knee occurs around eps = 1
+dbscan::kNNdistplot(cCoords[,1:3], k = 3) #knee occurs around eps = 1
 # Run dbscan
-dbscanResult <- fpc::dbscan(cCoords[,1:3], eps = 0.8, MinPts = 2)
+dbscanResult <- fpc::dbscan(cCoords[,1:3], eps = 1, MinPts = 3)
 # Assign clusters
 cCoords$Cluster_dbscan <- factor(dbscanResult$cluster)
 # Plot
@@ -234,6 +234,43 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
   plotly::layout(title = 'DBSCAN Clustering')
 dsContract$Cluster.DBSCAN <- factor(cCoords$Cluster_dbscan)
 
+
+
+# Alternative: K-PROTOTYPE
+# This uses the original ctrl vars without requiring dim reduction
+
+# Version 1:  Cluster based on ctrl vars ONLY
+k.max <- 15
+# Elbow method for optimal k
+wss.Proto <- sapply(1:k.max, 
+              function(k){clustMixType::kproto(cCtrlVars, k)$tot.withinss})
+plot(1:k.max, wss.Proto,
+     type="b", pch = 19, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
+
+kProtoResult <- clustMixType::kproto(cCtrlVars, k=6)
+cCoords$Cluster_proto <- factor(kProtoResult$cluster)
+
+# Plot in 3D using dim reduction results for sake of visualization
+plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
+                color = ~Cluster_proto,
+                marker = list(size = 3))%>%
+  plotly::layout(title = 'K Prototype Clustering: Control Vars')
+
+# Version 2: Cluster based on all but target var (cExtend)
+wss.Proto2 <- sapply(1:k.max, 
+                    function(k){clustMixType::kproto(dsContract[,1:10], k)$tot.withinss})
+plot(1:k.max, wss.Proto2,
+     type="b", pch = 19, frame = FALSE, 
+     xlab="Number of clusters K",
+     ylab="Total within-clusters sum of squares")
+kProtoResult2 <- clustMixType::kproto(dsContract[,1:10], k=6)
+cCoords$Cluster_proto2 <- factor(kProtoResult2$cluster)
+plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
+                color = ~Cluster_proto2,
+                marker = list(size = 3))%>%
+  plotly::layout(title = 'K Prototype Clustering: All Vars')
 
 
 
@@ -254,6 +291,8 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
                 marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
   layout(title = 'Survey Data, K-Means Cluster 2')
 
+
+
 #---------------------------------------------------
 #
 #             4. Statistical Analysis
@@ -261,6 +300,8 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
 #---------------------------------------------------
 
 # The following uses the original data (no FAMD, clustering)
+
+# Regression Analysis
 
 
 
@@ -272,9 +313,9 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
 
 # Training method: Leave-One-Out Cross Validation
 
-# Prediction method:
+# Classification Tree
 
-
+# 
 
 
 #---------------------------------------------------
