@@ -9,18 +9,18 @@
 #install.packages("fpc", dependencies = TRUE)
 #install.packages("dbscan", dependencies = TRUE)
 #install.packages("plyr",dependencies = TRUE)
+#install.packages(c("FactoMineR", "factoextra"), dependencies = TRUE)
 
 
 #install.packages("Hmisc",dependencies = TRUE)
 #install.packages("lm.beta", dependencies = TRUE )
 #install.packages("devtools", dependencies = TRUE)
 
-
 set.seed(123)
 
 # Load data
-dsTest <- read.csv(file=
-                     "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE) # Example dataset provided
+# dsTest <- read.csv(file=
+#                      "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE) # Example dataset provided
 dsAll <- read.csv(file=
                     "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults.csv",stringsAsFactors=FALSE) # Actual results
 
@@ -50,7 +50,6 @@ data.table::setnames(dsAll,
 
 # Convert likert values to numeric
 # Issues will likely arise from the fact that some vars do not have entries covering the full 1-5 range
-
 likertVars <- c('Env1','Env2','Env3','Env4','Env5','cPsych1','cPsych2','cPsych3','cPsych4','cPsych5',
                 'nPsych1','nPsych2','nPsych3','nPsych4','nPsych5')
 dsLikert <- dsAll[likertVars]
@@ -65,11 +64,12 @@ dsLikert <- dsLikert %>%
       "Strongly agree"    = 5
     ))
   )
-remove(dsLikert)
+
 # Cronbach alpha analysis
 a.Env <- psych::alpha(dsLikert[c("Env1","Env2","Env3","Env4","Env5")],check.keys=TRUE,cumulative = FALSE)
 a.cPsych <- psych::alpha(dsLikert[c("cPsych1","cPsych2","cPsych3","cPsych4","cPsych5")],check.keys=TRUE,cumulative = FALSE)
 a.nPsych <- psych::alpha(dsLikert[c("nPsych1","nPsych2","nPsych3","nPsych4","nPsych5")],check.keys=TRUE,cumulative = FALSE)
+remove(dsLikert)
 
 # Construct likert scores
 dsAll$Env <- a.Env$scores
@@ -78,7 +78,6 @@ dsAll$nPsych <- a.nPsych$scores
 
 # Convert vars to proper type
 dsAll$Work[9] <- "22.5" #Hard-coded adjustment for single incorrect input
-
 toNum <-c("Age","Work","cSwapUsed","nBikeUsed")
 toFact <- c("Contract","nFamiliar","NL","Gender","Student","Home","Education","cType","cExtend","nSign","cContractLength")
 dsAll[toNum] <- lapply(dsAll[toNum], as.numeric)
@@ -100,14 +99,14 @@ table(dsAll$Student)
 dsAll <- dsAll[dsAll$Student != "No",]
 
 # Convert yr of birth to age
-dsAll$Age[7] <- 25 #Hard-coded adjustment for single incorrect input
+dsAll$Age[7] <- 25 #Hard-coded adjustment for single incorrect input. NOT WORKING
 dsAll <- dsAll[is.na(dsAll$Age) == FALSE,]
 curYr = 2019
 dsAll <- mutate(dsAll, Age = ifelse(Age > 1900, curYr - Age, Age)) # accounts for respondents that put in age instead of birth yr
 
 # Convert hrs worked to employment
 dsAll <- 
-  mutate(dsAll, Work = case_when(is.na(Work) == TRUE ~ "NA",
+  mutate(dsAll, Work = case_when(is.na(Work) == TRUE ~ "NA", #consider changing to Unemployed
                                  Work >= 30 ~ "Full",
                                  Work < 1 ~ "Unemployed",
                                  TRUE ~ "Part"))
@@ -125,7 +124,10 @@ dsContract <- mutate(dsContract, cSwapUsed = ifelse(is.na(cSwapUsed) == TRUE, te
 dsNoContract <- dsAll[dsAll$Contract == "No",]
 nVars <- c("Gender","Age","Work","Home","Education","nBikeUsed","Env","nPsych","nSign")
 dsNoContract <- dsNoContract[,nVars]
-
+# Replace all nPsych NA w/ column mean
+temp <- mean(dsNoContract$nPsych,na.rm = TRUE)
+dsNoContract <- mutate(dsNoContract, nPsych = ifelse(is.na(nPsych) == TRUE, temp, nPsych))
+remove(temp)
 
 # Save summary of numerical data
 stargazer::stargazer(dsContract,
@@ -146,65 +148,31 @@ stargazer::stargazer(dsNoContract,
 #
 #---------------------------------------------------
 
-
-
-# Reduce only the control variables down to a total of 3 dimensions to allow for 3D visualization
+# FAMD
 # Leave explanatory vars attached
 
-ctrlVars <- dplyr::select(dsContract,Age,HrPWork,Neighborhood,dGender)
-pcaResults <- prcomp(ctrlVars,scale = TRUE)
-pcaSummary <- summary(pcaResults)
-# Scree plot
-barplot(pcaSummary$importance[2,],
-        ylab = "Proportion of Variance")
-barplot(pcaSummary$importance[3,],
-        ylab = "Cumulative Proportion of Variance")
-cat("Proportion of Variance Not Accounted for: ",pcaSummary$importance[2,4])
+cCtrlVars <- dplyr::select(dsContract,Gender,Age,Work,Home,Education,cType)
+cFAMDResults <- FactoMineR::FAMD(cCtrlVars,ncp = 6, graph=TRUE)
+factoextra::fviz_screeplot(cFAMDResults)
+print(factoextra::get_eigenvalue(cFAMDResults))
 
-# Biplot for first two components
-biplot(pcaResults)
-# TO DO: Figure out how to display var lines on 3D plot?
+# Plot contributions of vars to each component
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 1)
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 2)
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 3)
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 4)
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 5)
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 6)
 
-# WARNING: The fourth component accounts for a significant portion of the variance (~20%)
-# TO DO: Test other methods for determining if PCA is appropriate
-# Continue for the sake of practicing the concept, but do not rely on for accurate analysis
+# We find the first three vars only account for 56% of the variance
+# Continue reduction to 3D for sake of visualization but refrain from using results for analysis
 
-# Plot on 2D plot
-newCoords <- as.data.frame(pcaSummary$x)
-newCoords <- newCoords[c("PC1","PC2","PC3")]
-library(ggplot2)
-ggplot(newCoords, aes(x=PC1,y=PC2))+
-  geom_point(color = "red")
-uniqueCoords2D <- sum(!duplicated(newCoords[,1:2])) 
-
-
-# Plor on 3D plot
-# Generates a plot with roughly 4 groups of planes and ~6 outliers
-library(plotly)
-plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
-        marker = list(size = 3))%>%
-  layout(title = 'Survey Data After PCA')
-uniqueCoords3D <- sum(!duplicated(newCoords[,1:3]))
-
-
-
-# TROUBLE SHOOTING
-
-# Checking for unique points in any combination of dimensionals for the PCA result always results in 175, can be indicating issue
-uniqueCoords<-plyr::count(newCoords[,1])
-cat("Number of Points Not Displayed Due to Overlap: ",nRows - nrow(uniqueCoords))
-
-# Explore original data to check for possible causes of issues
-plot_ly(dsContract,x = ~Age, y = ~HrPWork, z = ~dGender,
-        marker = list(size = 3))%>%
-  layout(title = 'Original Survey Data, Not Accounting For Neighborhood')
-reducedDF <- dsContract[c("Age","HrPWork","dGender")]
-unique_OG <- plyr::count(reducedDF)
-
-
-
-# FAMD
-
+# Reduce dimensions and retrieve new coords
+cFAMDResults.3D <- FactoMineR::FAMD(cCtrlVars,ncp = 3, graph=FALSE)
+cCoords <- factoextra::get_famd_ind(cFAMDResults.3D)
+cCoords <- as.data.frame(cCoords$coord)
+plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,marker = list(size = 3)) %>% 
+  plotly::layout(title = "Survey Data After FAMD for 3 Most Significant Dim")
 
 
 
@@ -306,3 +274,58 @@ dsContract$Cluster_dbscan <- factor(newCoords$Cluster_dbscan)
 # Training method: Leave-One-Out Cross Validation
 
 # Prediction method:
+
+
+
+
+#---------------------------------------------------
+#
+#                   5. Removed
+#
+#---------------------------------------------------
+
+# Saving old methods in case. Anything past this will not run
+
+cPCAResults <- prcomp(cCtrlVars,scale = TRUE)
+cPCASummary <- summary(cPCAResults)
+
+# Scree plot
+barplot(cPCASummary$importance[2,],
+        ylab = "Proportion of Variance")
+barplot(cPCASummary$importance[3,],
+        ylab = "Cumulative Proportion of Variance")
+#cat("Proportion of Variance Not Accounted for: ",pcaSummary$importance[2,4])
+
+# Biplot for first two components
+biplot(pcaResults)
+# TO DO: Figure out how to display var lines on 3D plot?
+
+# Plot on 2D plot
+newCoords <- as.data.frame(pcaSummary$x)
+newCoords <- newCoords[c("PC1","PC2","PC3")]
+library(ggplot2)
+ggplot(newCoords, aes(x=PC1,y=PC2))+
+  geom_point(color = "red")
+uniqueCoords2D <- sum(!duplicated(newCoords[,1:2])) 
+
+
+# Plor on 3D plot
+# Generates a plot with roughly 4 groups of planes and ~6 outliers
+library(plotly)
+plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
+        marker = list(size = 3))%>%
+  layout(title = 'Survey Data After PCA')
+uniqueCoords3D <- sum(!duplicated(newCoords[,1:3]))
+
+# TROUBLE SHOOTING
+
+# Checking for unique points in any combination of dimensionals for the PCA result always results in 175, can be indicating issue
+uniqueCoords<-plyr::count(newCoords[,1])
+cat("Number of Points Not Displayed Due to Overlap: ",nRows - nrow(uniqueCoords))
+
+# Explore original data to check for possible causes of issues
+plot_ly(dsContract,x = ~Age, y = ~HrPWork, z = ~dGender,
+        marker = list(size = 3))%>%
+  layout(title = 'Original Survey Data, Not Accounting For Neighborhood')
+reducedDF <- dsContract[c("Age","HrPWork","dGender")]
+unique_OG <- plyr::count(reducedDF)
