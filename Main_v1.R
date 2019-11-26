@@ -37,6 +37,8 @@ dsAll <- dsAll[-c(1:2),]
 #
 #---------------------------------------------------
 
+# TO DO: Basic var exploration (tables, visualization, etc.)
+
 library(tidyverse)
 
 # Rename survey vars
@@ -150,6 +152,8 @@ stargazer::stargazer(dsNoContract,
 #
 #---------------------------------------------------
 
+# WARNING: Using the same amount of dim as vars does not result in cumulative variance of 100%
+
 # FAMD
 cCtrlVars <- dplyr::select(dsContract,Gender,Age,Work,Home,Education,cType)
 cFAMDResults <- FactoMineR::FAMD(cCtrlVars,ncp = 7, graph=TRUE)
@@ -173,6 +177,15 @@ cCoords <- factoextra::get_famd_ind(cFAMDResults.3D)
 cCoords <- as.data.frame(cCoords$coord)
 plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,marker = list(size = 3)) %>% 
   plotly::layout(title = "Survey Data After FAMD for 3 Most Significant Dim")
+
+# Check FAMD for all vars except target
+cFAMDResults.All <- FactoMineR::FAMD(dsContract[,1:10],ncp = 10, graph=TRUE)
+print(factoextra::get_eigenvalue(cFAMDResults.All))
+
+# Determine if any vars do not contribute significantly to 
+#the components that explain the majority of the variance.
+# This can be used in conjunction with the regression analysis to determine vars 
+#that do not have a significant effect on the explanatory/target vars.
 
 
 
@@ -299,9 +312,18 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
 #
 #---------------------------------------------------
 
-# The following uses the original data (no FAMD, clustering)
+# The following uses the original data (no FAMD, clustering).
+# If the addition of data results in reasonable clustering, 
+# then the following sections will be adjusted to be performed within each cluster
 
-# Regression Analysis
+# Correlation between vars
+
+# Multivariate Regression Analysis
+
+# Hypothesis testing: Check influence of all vars aside from the target var
+# Ideally we only care about the explanatory vars, but will check the ctrl vars in any ends up being unexpectedly influential 
+
+
 
 
 
@@ -313,9 +335,15 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
 
 # Training method: Leave-One-Out Cross Validation
 
+# Logit Regression
+
 # Classification Tree
 
-# 
+# Determine performance
+
+# Adjust models for var differences btw Contract $ NoContract
+
+# Predict nSign and determine performance
 
 
 #---------------------------------------------------
