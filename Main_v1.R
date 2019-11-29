@@ -14,6 +14,7 @@
 #install.packages("corrgram", dependencies = TRUE)
 #install.packages("corrplot", dependencies = TRUE)
 #install.packages("polycor",dependencies = TRUE)
+#install.packages("aod", dependencies = TRUE)
 
 #install.packages("Hmisc",dependencies = TRUE)
 #install.packages("lm.beta", dependencies = TRUE )
@@ -26,7 +27,7 @@ set.seed(123)
 #                      "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE) 
 # Qualtrics raw survey data
 dsAll <- read.csv(file=
-                    "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults.csv",stringsAsFactors=FALSE)
+                    "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults2.csv",stringsAsFactors=FALSE)
 
 # ~ first 20 results to be thrown out due to survey changes
 
@@ -83,7 +84,6 @@ dsAll$cPsych <- a.cPsych$scores
 dsAll$nPsych <- a.nPsych$scores
 
 # Convert vars to proper type
-dsAll$Work[9] <- "22.5" #Hard-coded adjustment for single incorrect input
 toNum <-c("Age","Work","cSwapUsed","nBikeUsed")
 toFact <- c("Contract","nFamiliar","NL","Gender","Student","Home","Education","cType","cExtend","nSign","cContractLength")
 dsAll[toNum] <- lapply(dsAll[toNum], as.numeric)
@@ -104,7 +104,6 @@ table(dsAll$Student)
 dsAll <- dsAll[dsAll$Student != "No",]
 
 # Convert yr of birth to age
-dsAll$Age[7] <- 25 #Hard-coded adjustment for single incorrect input. NOT WORKING
 dsAll <- dsAll[is.na(dsAll$Age) == FALSE,]
 curYr = 2019
 dsAll <- mutate(dsAll, Age = ifelse(Age > 1900, curYr - Age, Age)) # accounts for respondents that put in age instead of birth yr
@@ -124,6 +123,9 @@ dsContract <- dsContract[,cVars]
 # Replace all cSwapUsed NA w/ column mean
 temp <- mean(dsContract$cSwapUsed,na.rm = TRUE)
 dsContract <- mutate(dsContract, cSwapUsed = ifelse(is.na(cSwapUsed) == TRUE, temp, cSwapUsed))
+# Remove empty inherited factor levels
+dsContract <- droplevels(dsContract)
+sapply(dsContract,levels)
 
 # Create df of no contract respondents
 dsNoContract <- dsAll[dsAll$Contract == "No",]
@@ -316,33 +318,72 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
 #---------------------------------------------------
 
 # The following uses the original data (no FAMD, clustering).
-# If the addition of data results in reasonable clustering, 
+# If the addition of data results in reasonable clustering
+# and there are a reasonable amount of points in each cluster, 
 # then the following sections will be adjusted to be performed within each cluster.
-# Ideally we only care about the explanatory vars, but will check the ctrl vars in any ends up being unexpectedly influential 
-
-# Remove empty inherited factor levels
-dsContract <- droplevels(dsContract)
-sapply(dsContract,levels)
+# Ctrl: Control model; Exp: Explanatory model (what we are researching); All: Combined model
 
 # Check correlation between vars
 sapply(dsContract,class)
-cCorResults <- polycor::hetcor(dsContract[,1:10], std.err = TRUE) #currently does not address cExtend due to no "No" occurring
+cCorResults <- polycor::hetcor(dsContract[,1:11], std.err = TRUE) #currently does not address cExtend due to no "No" occurring
 cCorMtx <- cCorResults$correlations
-corrplot::corrplot(cCorMtx)
+corrplot::corrplot(cCorMtx, type="upper")
 
 # Define models
-mdlCtrl <- cExtend ~ Gender + Age + Work + Home + Education + cType
-mdlExp <- cExtend ~ cSwapUsed + cContractLength + Env + cPsych
-mdlAll <- cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed + cContractLength + Env + cPsych
+cMdlCtrl <- cExtend ~ Gender + Age + Work + Home + Education + cType
+cMdlExp <- cExtend ~ cSwapUsed + cContractLength + Env + cPsych
+cMdlAll <- cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed + cContractLength + Env + cPsych
 
-# Confidence intervals
+# Fit logit model
+cRslt.Log.Ctrl <- glm(cMdlCtrl, data=dsContract, binomial(link="logit"))
+cRslt.Log.Exp <- glm(cMdlExp, data=dsContract, binomial(link="logit"))
+cRslt.Log.All <- glm(cMdlAll, data=dsContract, binomial(link="logit"))
 
-# Hypothesis testing
-# 6 tests: one for each explanatory var, one for ctrl model vs complete model, one for explanatory model vs complete model
-# Anova-chi (Tutorial 8)
+# Generate table with summaries of models
+stargazer::stargazer(cRslt.Log.Ctrl,cRslt.Log.Exp,cRslt.Log.All,
+                     #covariate.labels = c("")
+                     intercept.bottom = FALSE,
+                     align = TRUE,
+                     report=('vc*p'),
+                     model.numbers = FALSE,
+                     column.labels = c("Control","Explanatory","Complete"),
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/sumAllMdls.doc")
+
+# Test the overall effect of Home, Length (as at least one of their levels is significant)
+cHomeTest <- aod::wald.test(b = coef(cRslt.Log.All), Sigma = vcov(cRslt.Log.All), Terms = 6:7)
+cLengthTest <- aod::wald.test(b = coef(cRslt.Log.All), Sigma = vcov(cRslt.Log.All), Terms = 12:14)
+stargazer::stargazer(cHomeTest$result,
+                     title = "Wald Test for Home",
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/HomeTest.doc")
+stargazer::stargazer(cLengthTest$result,
+                     title = "Wald Test for Contract Length",
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/LengthTest.doc")
+# Neither are significant (p > 0.3)
+
+# Variable Significance Summary:
+# Control: None
+# Explanatory: cSwapUsed @ p < 0.1, Env @ < 0.01, cPsych @ < 0.1
+# All: Env @ < 0.05, cPsych @ < 0.1
+# Log Likelihoods reveal that the models rank from best to worst as: All > Exp > Ctrl
 
 
+# LRT Hypothesis Testing for Comparison of Models:
 
+# Ctrl vs All (Addition of explanatory vars)
+anova(cRslt.Log.Ctrl,cRslt.Log.All,test="LRT")
+# Significant at p < 0.001
+
+# Exp vs All (Addition of control vars)
+anova(cRslt.Log.Exp,cRslt.Log.All,test="LRT")
+# No significance
 
 
 #---------------------------------------------------
@@ -353,15 +394,7 @@ mdlAll <- cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed +
 
 # Training method: Leave-One-Out Cross Validation
 
-# Logit Regression
-
-# Classification Tree
-
-# Random Forest
-
-# GBM
-
-# Naive Bayes?
+# Fit additional models
 
 # Determine and compare performance
 
@@ -383,10 +416,7 @@ mdlAll <- cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed +
 
 # Insufficient sample size
 
-# 
-
-# Hypothesis tests only check for linear relationships
-
+# Assumes conditions met for logistic regression
 
 #---------------------------------------------------
 #
