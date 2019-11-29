@@ -13,7 +13,7 @@
 #install.packages("clustMixType", dependencies = TRUE)
 #install.packages("corrgram", dependencies = TRUE)
 #install.packages("corrplot", dependencies = TRUE)
-
+#install.packages("polycor",dependencies = TRUE)
 
 #install.packages("Hmisc",dependencies = TRUE)
 #install.packages("lm.beta", dependencies = TRUE )
@@ -111,7 +111,7 @@ dsAll <- mutate(dsAll, Age = ifelse(Age > 1900, curYr - Age, Age)) # accounts fo
 
 # Convert hrs worked to employment
 dsAll <- 
-  mutate(dsAll, Work = case_when(is.na(Work) == TRUE ~ "NA", #consider changing to Unemployed
+  mutate(dsAll, Work = case_when(is.na(Work) == TRUE ~ "Unemployed", #check
                                  Work >= 30 ~ "Full",
                                  Work < 1 ~ "Unemployed",
                                  TRUE ~ "Part"))
@@ -295,17 +295,17 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
 # Plotly is known to have issues plotting within loops. Plotted without loop due to low amount of clusters
 # See https://github.com/ropensci/plotly/issues/273 for solution
 
-dsTemp <- subset(dsContract, Cluster == 1)
-plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
-                size = ~IntentContract,
-                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
-  layout(title = 'Survey Data, K-Means Cluster 1')
-
-dsTemp <- subset(dsContract, Cluster == 2)
-plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
-                size = ~IntentContract,
-                marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
-  layout(title = 'Survey Data, K-Means Cluster 2')
+# dsTemp <- subset(dsContract, Cluster.Kmeans == 1)
+# plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
+#                 size = ~IntentContract,
+#                 marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
+#   layout(title = 'Survey Data, K-Means Cluster 1')
+# 
+# dsTemp <- subset(dsContract, Cluster.Kmeans == 2)
+# plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
+#                 size = ~IntentContract,
+#                 marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
+#   layout(title = 'Survey Data, K-Means Cluster 2')
 
 
 
@@ -320,25 +320,26 @@ plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
 # then the following sections will be adjusted to be performed within each cluster.
 # Ideally we only care about the explanatory vars, but will check the ctrl vars in any ends up being unexpectedly influential 
 
+# Remove empty inherited factor levels
+dsContract <- droplevels(dsContract)
+sapply(dsContract,levels)
 
-# Correlation between vars. Reveals reasonable correlation btw Age and cPsych
-numVars <- c("Age","cSwapUsed","Env","cPsych")
-corrgram::corrgram(dsContract[,numVars])
-corMtx <- cor(dsContract[,numVars])
-corrplot::corrplot(corMtx)
-# look into mixed.cor.
-# May need to use results from regression analysis to plot relationships
+# Check correlation between vars
+sapply(dsContract,class)
+cCorResults <- polycor::hetcor(dsContract[,1:10], std.err = TRUE) #currently does not address cExtend due to no "No" occurring
+cCorMtx <- cCorResults$correlations
+corrplot::corrplot(cCorMtx)
 
-# Model for ctrls only
-
-# Model for all
+# Define models
+mdlCtrl <- cExtend ~ Gender + Age + Work + Home + Education + cType
+mdlExp <- cExtend ~ cSwapUsed + cContractLength + Env + cPsych
+mdlAll <- cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed + cContractLength + Env + cPsych
 
 # Confidence intervals
 
 # Hypothesis testing
-# Determine the influence of all vars and of only the ctrl vars
-# Use coeff-F. Only checks for linear relationships
-# anova-chi requires normal distribution of vars, which doesn't occur
+# 6 tests: one for each explanatory var, one for ctrl model vs complete model, one for explanatory model vs complete model
+# Anova-chi (Tutorial 8)
 
 
 
@@ -359,6 +360,8 @@ corrplot::corrplot(corMtx)
 # Random Forest
 
 # GBM
+
+# Naive Bayes?
 
 # Determine and compare performance
 
