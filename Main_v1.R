@@ -15,6 +15,8 @@
 #install.packages("corrplot", dependencies = TRUE)
 #install.packages("polycor",dependencies = TRUE)
 #install.packages("aod", dependencies = TRUE)
+#install.packages("e1071", dependencies = TRUE)
+
 
 #install.packages("Hmisc",dependencies = TRUE)
 #install.packages("lm.beta", dependencies = TRUE )
@@ -28,8 +30,6 @@ set.seed(123)
 # Qualtrics raw survey data
 dsAll <- read.csv(file=
                     "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults2.csv",stringsAsFactors=FALSE)
-
-# ~ first 20 results to be thrown out due to survey changes
 
 # Remove rows not corresponding to respondents, do not re-run
 dsAll <- dsAll[-c(1:2),]
@@ -116,6 +116,11 @@ dsAll <-
                                  TRUE ~ "Part"))
 dsAll$Work <- as.factor(dsAll$Work)
 
+# Change dependent var to 0 1
+dsAll <- dsAll %>%
+  mutate(cExtend = ifelse(cExtend == "No",0,1))
+dsAll$cExtend <- as.factor(dsAll$cExtend)
+
 # Create df of contract respondents
 dsContract <- dsAll[dsAll$Contract == "Yes",]
 cVars <- c("Gender","Age","Work","Home","Education","cType","cSwapUsed","cContractLength","Env","cPsych","cExtend")
@@ -126,6 +131,7 @@ dsContract <- mutate(dsContract, cSwapUsed = ifelse(is.na(cSwapUsed) == TRUE, te
 # Remove empty inherited factor levels
 dsContract <- droplevels(dsContract)
 sapply(dsContract,levels)
+
 
 # Create df of no contract respondents
 dsNoContract <- dsAll[dsAll$Contract == "No",]
@@ -188,9 +194,9 @@ cFAMDResults.All <- FactoMineR::FAMD(dsContract[,1:10],ncp = 10, graph=TRUE)
 print(factoextra::get_eigenvalue(cFAMDResults.All))
 
 # Determine if any vars do not contribute significantly to 
-#the components that explain the majority of the variance.
+# the components that explain the majority of the variance.
 # This can be used in conjunction with the regression analysis to determine vars 
-#that do not have a significant effect on the explanatory/target vars.
+# that do not have a significant effect on the explanatory/target vars.
 
 
 
@@ -237,12 +243,11 @@ dsContract$Cluster.Kmeans <- factor(cCoords$Cluster_kmeans)
 
 
 # Alternative: DBSCAN 
-# WARNING: Does not work at the moment due to low amount of data points
 
 # Determine optimal epsilon
-dbscan::kNNdistplot(cCoords[,1:3], k = 3) #knee occurs around eps = 1
+dbscan::kNNdistplot(cCoords[,1:3], k = 5) #knee occurs around eps = 1
 # Run dbscan
-dbscanResult <- fpc::dbscan(cCoords[,1:3], eps = 1, MinPts = 3)
+dbscanResult <- fpc::dbscan(cCoords[,1:3], eps = 1.8, MinPts = 5)
 # Assign clusters
 cCoords$Cluster_dbscan <- factor(dbscanResult$cluster)
 # Plot
@@ -251,7 +256,7 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
                 marker = list(size = 3))%>%
   plotly::layout(title = 'DBSCAN Clustering')
 dsContract$Cluster.DBSCAN <- factor(cCoords$Cluster_dbscan)
-
+# Detects no clusters aside from outliers. Supports decision of control variables
 
 
 # Alternative: K-PROTOTYPE
@@ -267,7 +272,7 @@ plot(1:k.max, wss.Proto,
      xlab="Number of clusters K",
      ylab="Total within-clusters sum of squares")
 
-kProtoResult <- clustMixType::kproto(cCtrlVars, k=6)
+kProtoResult <- clustMixType::kproto(cCtrlVars, k=4)
 cCoords$Cluster_proto <- factor(kProtoResult$cluster)
 
 # Plot in 3D using dim reduction results for sake of visualization
@@ -276,20 +281,23 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
                 marker = list(size = 3))%>%
   plotly::layout(title = 'K Prototype Clustering: Control Vars')
 
-# Version 2: Cluster based on all but target var (cExtend)
-wss.Proto2 <- sapply(1:k.max, 
-                    function(k){clustMixType::kproto(dsContract[,1:10], k)$tot.withinss})
-plot(1:k.max, wss.Proto2,
+
+# Version 2: Cluster based on all vars
+cCombinedVars <- dsContract[,1:10]
+wss.Proto <- sapply(1:k.max, 
+                    function(k){clustMixType::kproto(cCombinedVars, k)$tot.withinss})
+plot(1:k.max, wss.Proto,
      type="b", pch = 19, frame = FALSE, 
      xlab="Number of clusters K",
      ylab="Total within-clusters sum of squares")
-kProtoResult2 <- clustMixType::kproto(dsContract[,1:10], k=6)
+
+kProtoResult2 <- clustMixType::kproto(cCombinedVars, k=5)
 cCoords$Cluster_proto2 <- factor(kProtoResult2$cluster)
+# Plot in 3D using dim reduction results for sake of visualization
 plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
                 color = ~Cluster_proto2,
                 marker = list(size = 3))%>%
   plotly::layout(title = 'K Prototype Clustering: All Vars')
-
 
 
 
@@ -330,14 +338,14 @@ cCorMtx <- cCorResults$correlations
 corrplot::corrplot(cCorMtx, type="upper")
 
 # Define models
-cMdlCtrl <- cExtend ~ Gender + Age + Work + Home + Education + cType
-cMdlExp <- cExtend ~ cSwapUsed + cContractLength + Env + cPsych
-cMdlAll <- cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed + cContractLength + Env + cPsych
+cMdl.Ctrl <- cExtend ~ Gender + Age + Work + Home + Education + cType
+cMdl.Exp <- cExtend ~ cSwapUsed + cContractLength + Env + cPsych
+cMdl.All <- cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed + cContractLength + Env + cPsych
 
 # Fit logit model
-cRslt.Log.Ctrl <- glm(cMdlCtrl, data=dsContract, binomial(link="logit"))
-cRslt.Log.Exp <- glm(cMdlExp, data=dsContract, binomial(link="logit"))
-cRslt.Log.All <- glm(cMdlAll, data=dsContract, binomial(link="logit"))
+cRslt.Log.Ctrl <- glm(cMdl.Ctrl, data=dsContract, binomial(link="logit"))
+cRslt.Log.Exp <- glm(cMdl.Exp, data=dsContract, binomial(link="logit"))
+cRslt.Log.All <- glm(cMdl.All, data=dsContract, binomial(link="logit"))
 
 # Generate table with summaries of models
 stargazer::stargazer(cRslt.Log.Ctrl,cRslt.Log.Exp,cRslt.Log.All,
@@ -392,19 +400,91 @@ anova(cRslt.Log.Exp,cRslt.Log.All,test="LRT")
 #
 #---------------------------------------------------
 
-# Training method: Leave-One-Out Cross Validation
 
-# Fit additional models
+# Define function to calculate performance measures
+measurePerf <- function(p,y,tau) {
+  p <- as.numeric(p>tau)
+  y <- factor(y, levels = c(0,1))
+  p <- factor(p, levels = c(0,1))
+  # Make a classification table
+  tbl <- table(Predicted = p, Observed = y)
+  # Identify classifications
+  TP <- tbl[2,2]
+  FN <- tbl[1,2]
+  TN <- tbl[1,1]
+  FP <- tbl[2,1]
+  # Measure performance   
+  perf <- c(
+    Accuracy    = (TP+TN)/sum(tbl),
+    Sensitivity = TP/(TP + FN),
+    Specificity = TN/(FP + TN),
+    Precision   = TP/(FP + TP)
+  )
+  return(perf)
+}
 
-# Determine and compare performance
+# Training method: Leave-One-Out Cross Validation (Manual)
+# Warning: Outliers can have significant effects
+cNewLabels.Log <- NULL
+cNewLabels.Tree <- NULL
+cNewLabels.Forest <- NULL
+cNewLabels.Gbm <- NULL
+cNewLabels.NB <- NULL
 
-# Check for overfitting
-# Cross Validation?
+
+cObs <- nrow(dsContract)
+for (i in 1:cObs){
+  
+  #Select only a single value for testing
+  dsContract.Test <- dsContract[i,]
+  dsContract.Train <- dsContract[-i,]
+  
+  # Fit models using training data
+  cRslt.Log <- glm(cMdl.All, data = dsContract.Train, binomial(link = "logit"))
+  numA <- cRslt.Log$df.null - cRslt.Log$df.residual
+  mA <- round(sqrt(numA))
+  nTrees <- 500
+  cRslt.Tree <- rpart::rpart(cMdl.All, data = dsContract.Train, method = "class",
+                           parms = list(split = "information"))
+  cRslt.Forest<- randomForest::randomForest(cMdl.All, data = dsContract.Train, 
+                                            ntree = 200, mtry = mA, importance = TRUE)
+  cRslt.Gbm <- gbm::gbm(cMdl.All, data = dsContract.Train, distribution = "multinomial", 
+                        n.trees = nTrees, interaction.depth=2, shrinkage = 0.01,
+                        bag.fraction = 0.5, n.minobsinnode = 10)
+  cRslt.NB <- e1071::naiveBayes(cMdl.All, data = dsContract.Train)
+  
+  # Determine prediction labels for single test obs and store
+  cNewLabels.Log[i] <- predict(cRslt.Log, dsContract.Test, type = "response")
+  cNewLabels.Tree[i] <- predict(cRslt.Tree, dsContract.Test)[,2] # PROBLEMATIC RESULTS
+  cNewLabels.Forest[i] <- predict(cRslt.Forest, dsContract.Test, type = "prob")[,2]
+  cNewLabels.Gbm[i] <- predict(cRslt.Gbm, dsContract.Test, type="response",n.trees=nTrees)[,2,]
+  cNewLabels.NB[i] <- predict(cRslt.NB, dsContract.Test)
+}
+
+# Calculate performance measures
+cTrueLabels <- dsContract$cExtend
+cNewLabels.NB <- cNewLabels.NB - 1 #adjustment needed as it predict factor level instead of label
+cMeasures.Logit <- measurePerf(cNewLabels.Log,cTrueLabels,0.5)
+cMeasures.Forest <- measurePerf(cNewLabels.Forest,cTrueLabels,0.5)
+cMeasures.Gbm <- measurePerf(cNewLabels.Gbm,cTrueLabels,0.5)
+cMeasures.NB <- measurePerf(cNewLabels.NB,cTrueLabels,0.5)
+
+# Prepare data for ROC cruves
+
+
+# Plot ROCR curves
+
+
+# Find AUCs
+
+
+
+
 
 # Adjust models for var differences btw Contract & NoContract
 
-# Predict nSign and determine performance
 
+# Predict nSign and determine performance
 
 
 
@@ -417,6 +497,8 @@ anova(cRslt.Log.Exp,cRslt.Log.All,test="LRT")
 # Insufficient sample size
 
 # Assumes conditions met for logistic regression
+
+# Significance often occurs at 10% instead of the expected 5%
 
 #---------------------------------------------------
 #
