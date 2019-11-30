@@ -464,20 +464,61 @@ for (i in 1:cObs){
 # Calculate performance measures
 cTrueLabels <- dsContract$cExtend
 cNewLabels.NB <- cNewLabels.NB - 1 #adjustment needed as it predict factor level instead of label
-cMeasures.Logit <- measurePerf(cNewLabels.Log,cTrueLabels,0.5)
+cMeasures.Log <- measurePerf(cNewLabels.Log,cTrueLabels,0.5)
 cMeasures.Forest <- measurePerf(cNewLabels.Forest,cTrueLabels,0.5)
 cMeasures.Gbm <- measurePerf(cNewLabels.Gbm,cTrueLabels,0.5)
 cMeasures.NB <- measurePerf(cNewLabels.NB,cTrueLabels,0.5)
+cMeasures.All <- rbind(cMeasures.Log,cMeasures.Forest,cMeasures.Gbm,cMeasures.NB)
+rownames(cMeasures.All) <- c("Log","Forest","GBM","Naive Bayes")
+stargazer::stargazer(cMeasures.All,
+                     title = "Performance Measures for Classifiers",
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Performance.doc")
 
-# Prepare data for ROC cruves
+library(ROCR)
+# Calculate data for ROC cruves
+cPrediction.Log <- prediction(cNewLabels.Log, cTrueLabels)
+cPrediction.Forest <- prediction(cNewLabels.Forest, cTrueLabels)
+cPrediction.Gbm <- rediction(cNewLabels.Gbm, cTrueLabels)
+cPrediction.NB <- prediction(cNewLabels.NB, cTrueLabels)
 
+cPerf.Log <- performance(cPrediction.Log, measure = "tpr", x.measure = "fpr")
+cPerf.Forest <- performance(cPrediction.Forest, measure = "tpr", x.measure = "fpr")
+cPerf.Gbm <- performance(cPrediction.Gbm, measure = "tpr", x.measure = "fpr")
+cPerf.NB <- performance(cPrediction.NB, measure = "tpr", x.measure = "fpr")
 
 # Plot ROCR curves
-
+png("~/Rcode/EUR/Adjusted BA Project/Results/PlotROCR.png")
+plot(cPerf.Log, lty=1, lwd = 2.0, col = "red", main = "Classifier Performance Curves for Contract Data")
+plot(cPerf.Forest, lty=1, lwd=2.0, col="blue", add = TRUE)
+plot(cPerf.Gbm, lty=1, lwd=2.0, col="green", add = TRUE)
+plot(cPerf.NB, lty=1, lwd=2.0, col="purple", add = TRUE)
+abline(a=0, b=1, lty=3, lwd=1.5)
+mtext("Leave-One-Out Training", side = 3)
+legend(0.6, 0.5, c("Logit Regression",
+                   "Random Forest",
+                   "Gradient Boosting Machine",
+                   "Naive Bayesian Classifier"),
+       col = c("red","blue","green","purple"),
+       lwd = 3)
+dev.off()
 
 # Find AUCs
-
-
+auc.Log <- performance(cPrediction.Log,measure = "auc")@y.values[[1]]
+auc.Forest <- performance(cPrediction.Forest,measure = "auc")@y.values[[1]]
+auc.Gbm <- performance(cPrediction.Gbm,measure = "auc")@y.values[[1]]
+auc.NB <- performance(cPrediction.NB,measure = "auc")@y.values[[1]]
+auc.all <- cbind(auc.Log, auc.Forest, auc.Gbm, auc.NB)
+rownames(auc.all) <- c("AUC")
+colnames(auc.all) <- c("Log","Forest","GBM","Naive Bayes")
+stargazer::stargazer(auc.all,
+                     title = "AUC Values for Classifiers",
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/AUC.doc")
 
 
 
