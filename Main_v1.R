@@ -116,10 +116,13 @@ dsAll <-
                                  TRUE ~ "Part"))
 dsAll$Work <- as.factor(dsAll$Work)
 
-# Change dependent var to 0 1
+# Change dependent vars to 0 1
 dsAll <- dsAll %>%
   mutate(cExtend = ifelse(cExtend == "No",0,1))
 dsAll$cExtend <- as.factor(dsAll$cExtend)
+dsAll <- dsAll %>%
+  mutate(nSign = ifelse(nSign == "No",0,1))
+dsAll$nSign <- as.factor(dsAll$nSign)
 
 # Create df of contract respondents
 dsContract <- dsAll[dsAll$Contract == "Yes",]
@@ -141,6 +144,9 @@ dsNoContract <- dsNoContract[,nVars]
 temp <- mean(dsNoContract$nPsych,na.rm = TRUE)
 dsNoContract <- mutate(dsNoContract, nPsych = ifelse(is.na(nPsych) == TRUE, temp, nPsych))
 remove(temp)
+# Remove empty inherited factor levels
+dsNoContract <- droplevels(dsNoContract)
+sapply(dsNoContract,levels)
 
 # Save summary of numerical data
 stargazer::stargazer(dsContract,
@@ -178,6 +184,10 @@ factoextra::fviz_contrib(cFAMDResults, "var", axes = 3)
 factoextra::fviz_contrib(cFAMDResults, "var", axes = 4)
 factoextra::fviz_contrib(cFAMDResults, "var", axes = 5)
 factoextra::fviz_contrib(cFAMDResults, "var", axes = 6)
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 7)
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 8)
+factoextra::fviz_contrib(cFAMDResults, "var", axes = 9)
+
 
 # We find the first three vars only account for 56% of the variance
 # Continue reduction to 3D for sake of visualization but refrain from using results for analysis
@@ -481,7 +491,7 @@ library(ROCR)
 # Calculate data for ROC cruves
 cPrediction.Log <- prediction(cNewLabels.Log, cTrueLabels)
 cPrediction.Forest <- prediction(cNewLabels.Forest, cTrueLabels)
-cPrediction.Gbm <- rediction(cNewLabels.Gbm, cTrueLabels)
+cPrediction.Gbm <- prediction(cNewLabels.Gbm, cTrueLabels)
 cPrediction.NB <- prediction(cNewLabels.NB, cTrueLabels)
 
 cPerf.Log <- performance(cPrediction.Log, measure = "tpr", x.measure = "fpr")
@@ -521,12 +531,42 @@ stargazer::stargazer(auc.all,
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/AUC.doc")
 
 
+# From the previous results, the random forest performs best for all vars.
+# Therefore we will choose this classifier for predictions for non-customers
 
-# Adjust models for var differences btw Contract & NoContract
+# Recreate contract dataframe but with var names matching those of the no contract data
+dsTrain <- dsContract %>%
+  select(cSwapUsed,Env,cPsych,cExtend)
+names(dsTrain) <- c("nBikeUsed","Env","nPsych","nSign")
 
+# Define adjusted explanatory model
+mdl.Exp <- nSign ~.
+nTrueLabels <- dsNoContract$nSign
 
-# Predict nSign and determine performance
+# Fit random forest using contract data
+nRslt.Forest<- randomForest::randomForest(mdl.Exp, data = dsTrain, 
+                                          ntree = 200, mtry = mA, importance = TRUE)
 
+# Calculate predicted labels
+nNewLabels <- predict(nRslt.Forest, dsNoContract, type = "prob")[,2]
+
+# Calculate performance measures
+nMeasures.Forest <- measurePerf(nNewLabels,nTrueLabels,0.5)
+
+# Create ROC plot
+nPrediction.Forest <- prediction(nNewLabels, nTrueLabels)
+nPerf.Forest <- performance(nPrediction.Forest, measure = "tpr", x.measure = "fpr")
+png("~/Rcode/EUR/Adjusted BA Project/Results/NoContractROC.png")
+plot(cPerf.Log, lty=1, lwd = 2.0, col = "red", main = "ROC for No Contract Data")
+abline(a=0, b=1, lty=3, lwd=1.5)
+mtext("Contract Data as Training Data", side = 3)
+legend(0.6, 0.5, c("Random Forest"),
+       col = c("red"),
+       lwd = 3)
+dev.off()
+
+# Find AUC
+nAUC.Forest <- performance(nPrediction.Forest,measure = "auc")@y.values[[1]]
 
 
 #---------------------------------------------------
