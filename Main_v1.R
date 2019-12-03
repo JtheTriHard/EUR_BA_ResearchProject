@@ -108,6 +108,7 @@ dsAll <- dsAll[is.na(dsAll$Age) == FALSE,]
 curYr = 2019
 dsAll <- mutate(dsAll, Age = ifelse(Age > 1900, curYr - Age, Age)) # accounts for respondents that put in age instead of birth yr
 
+
 # Convert hrs worked to employment
 dsAll <- 
   mutate(dsAll, Work = case_when(is.na(Work) == TRUE ~ "Unemployed", #check
@@ -343,7 +344,7 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
 
 # Check correlation between vars
 sapply(dsContract,class)
-cCorResults <- polycor::hetcor(dsContract[,1:11], std.err = TRUE) #currently does not address cExtend due to no "No" occurring
+cCorResults <- polycor::hetcor(dsContract[,1:11], std.err = TRUE) 
 cCorMtx <- cCorResults$correlations
 corrplot::corrplot(cCorMtx, type="upper")
 
