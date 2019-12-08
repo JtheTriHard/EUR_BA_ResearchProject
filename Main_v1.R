@@ -1,5 +1,4 @@
 # Author: JTheTriHard
-# Final version
 
 # Install necessary packages
 #install.packages("psych",dependencies = TRUE)
@@ -16,11 +15,6 @@
 #install.packages("polycor",dependencies = TRUE)
 #install.packages("aod", dependencies = TRUE)
 #install.packages("e1071", dependencies = TRUE)
-
-
-#install.packages("Hmisc",dependencies = TRUE)
-#install.packages("lm.beta", dependencies = TRUE )
-#install.packages("devtools", dependencies = TRUE)
 
 set.seed(123)
 
@@ -138,6 +132,7 @@ sapply(dsContract,levels)
 
 
 # Create df of no contract respondents
+# Note: Due to the space limitations and requirements of the project, this data will not be used further.
 dsNoContract <- dsAll[dsAll$Contract == "No",]
 nVars <- c("Gender","Age","Work","Home","Education","nBikeUsed","Env","nPsych","nSign")
 dsNoContract <- dsNoContract[,nVars]
@@ -162,7 +157,85 @@ stargazer::stargazer(dsNoContract,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/NoContractTable.doc")
 
+# Univariate analysis of categorical data for dsContract
 
+# Gender
+cnt <- table(dsContract$Gender)
+prop <- cnt/sum(cnt)
+tbl <- t(rbind(cnt,prop))
+colnames(tbl) <- c("Count","Frequency")
+stargazer::stargazer(tbl,
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Gender_Tbl.doc")
+
+# Work
+cnt <- table(dsContract$Work)
+prop <- cnt/sum(cnt)
+tbl <- t(rbind(cnt,prop))
+colnames(tbl) <- c("Count","Frequency")
+stargazer::stargazer(tbl,
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Work_Tbl.doc")
+
+# Home
+cnt <- table(dsContract$Home)
+prop <- cnt/sum(cnt)
+tbl <- t(rbind(cnt,prop))
+colnames(tbl) <- c("Count","Frequency")
+stargazer::stargazer(tbl,
+                     align = TRUE,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Home_Tbl.doc")
+
+# Education
+cnt <- table(dsContract$Education)
+prop <- cnt/sum(cnt)
+tbl <- t(rbind(cnt,prop))
+colnames(tbl) <- c("Count","Frequency")
+stargazer::stargazer(tbl,
+                     align = TRUE,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Education_Tbl.doc")
+
+# cType
+cnt <- table(dsContract$cType)
+prop <- cnt/sum(cnt)
+tbl <- t(rbind(cnt,prop))
+colnames(tbl) <- c("Count","Frequency")
+stargazer::stargazer(tbl,
+                     align = TRUE,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/cType_Tbl.doc")
+
+# cContractLength
+cnt <- table(dsContract$cContractLength)
+prop <- cnt/sum(cnt)
+tbl <- t(rbind(cnt,prop))
+colnames(tbl) <- c("Count","Frequency")
+stargazer::stargazer(tbl,
+                     align = TRUE,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Length_Tbl.doc")
+
+# cExtend
+cnt <- table(dsContract$cExtend)
+prop <- cnt/sum(cnt)
+tbl <- t(rbind(cnt,prop))
+colnames(tbl) <- c("Count","Frequency")
+rownames(tbl) <- c("No","Yes")
+stargazer::stargazer(tbl,
+                     align = TRUE,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/cExtend_Tbl.doc")
 
 #---------------------------------------------------
 #
