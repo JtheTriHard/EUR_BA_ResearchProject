@@ -23,7 +23,7 @@ set.seed(123)
 #                      "~/Rcode/EUR/BA Final Project/EUR_BA_ResearchProject/Data/BikeSharingContracts.csv",stringsAsFactors=FALSE) 
 # Qualtrics raw survey data
 dsAll <- read.csv(file=
-                    "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults2.csv",stringsAsFactors=FALSE)
+                    "~/Rcode/EUR/Adjusted BA Project/Data/SurveyResults3.csv",stringsAsFactors=FALSE)
 
 # Remove rows not corresponding to respondents, do not re-run
 dsAll <- dsAll[-c(1:2),]
@@ -144,7 +144,7 @@ remove(temp)
 dsNoContract <- droplevels(dsNoContract)
 sapply(dsNoContract,levels)
 
-# Save summary of numerical data
+# Univariate analysis for numerical data
 stargazer::stargazer(dsContract,
                      align = TRUE ,
                      digits=2,
@@ -169,7 +169,7 @@ stargazer::stargazer(tbl,
                      digits=3,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/Gender_Tbl.doc")
-
+catVarTbl <- tbl
 # Work
 cnt <- table(dsContract$Work)
 prop <- cnt/sum(cnt)
@@ -180,7 +180,7 @@ stargazer::stargazer(tbl,
                      digits=3,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/Work_Tbl.doc")
-
+catVarTbl <- rbind(catVarTbl,tbl)
 # Home
 cnt <- table(dsContract$Home)
 prop <- cnt/sum(cnt)
@@ -191,6 +191,7 @@ stargazer::stargazer(tbl,
                      digits=3,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/Home_Tbl.doc")
+catVarTbl <- rbind(catVarTbl,tbl)
 
 # Education
 cnt <- table(dsContract$Education)
@@ -202,6 +203,7 @@ stargazer::stargazer(tbl,
                      digits=3,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/Education_Tbl.doc")
+catVarTbl <- rbind(catVarTbl,tbl)
 
 # cType
 cnt <- table(dsContract$cType)
@@ -213,6 +215,7 @@ stargazer::stargazer(tbl,
                      digits=3,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/cType_Tbl.doc")
+catVarTbl <- rbind(catVarTbl,tbl)
 
 # cContractLength
 cnt <- table(dsContract$cContractLength)
@@ -224,6 +227,7 @@ stargazer::stargazer(tbl,
                      digits=3,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/Length_Tbl.doc")
+catVarTbl <- rbind(catVarTbl,tbl)
 
 # cExtend
 cnt <- table(dsContract$cExtend)
@@ -236,6 +240,7 @@ stargazer::stargazer(tbl,
                      digits=3,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/cExtend_Tbl.doc")
+catVarTbl <- rbind(catVarTbl,tbl)
 
 #---------------------------------------------------
 #
@@ -243,28 +248,17 @@ stargazer::stargazer(tbl,
 #
 #---------------------------------------------------
 
-# WARNING: Using the same amount of dim as vars does not result in cumulative variance of 100%
-
 # FAMD
 cCtrlVars <- dplyr::select(dsContract,Gender,Age,Work,Home,Education,cType)
-cFAMDResults <- FactoMineR::FAMD(cCtrlVars,ncp = 11, graph=TRUE)
+cFAMDResults <- FactoMineR::FAMD(cCtrlVars, graph=FALSE)
 factoextra::fviz_screeplot(cFAMDResults)
 print(factoextra::get_eigenvalue(cFAMDResults))
 
-# Plot contributions of vars to each component
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 1)
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 2)
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 3)
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 4)
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 5)
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 6)
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 7)
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 8)
-factoextra::fviz_contrib(cFAMDResults, "var", axes = 9)
+# Plot contributions of vars to component
+# factoextra::fviz_contrib(cFAMDResults, "var", axes = 1)
 
-
-# We find the first three vars only account for 56% of the variance
-# Continue reduction to 3D for sake of visualization but refrain from using results for analysis
+# We find the first three vars only account about 50% of the variance
+# Continue reduction to 3D for sake of visualization but refrain from using results for analysis if limiting to 3D
 
 # Reduce dimensions and retrieve new coords
 cFAMDResults.3D <- FactoMineR::FAMD(cCtrlVars,ncp = 3, graph=FALSE)
@@ -274,13 +268,8 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,marker = list(size = 
   plotly::layout(title = "Survey Data After FAMD for 3 Most Significant Dim")
 
 # Check FAMD for all vars except target
-cFAMDResults.All <- FactoMineR::FAMD(dsContract[,1:10],ncp = 10, graph=TRUE)
+cFAMDResults.All <- FactoMineR::FAMD(dsContract[,1:10], graph=FALSE)
 print(factoextra::get_eigenvalue(cFAMDResults.All))
-
-# Determine if any vars do not contribute significantly to 
-# the components that explain the majority of the variance.
-# This can be used in conjunction with the regression analysis to determine vars 
-# that do not have a significant effect on the explanatory/target vars.
 
 
 
@@ -290,8 +279,6 @@ print(factoextra::get_eigenvalue(cFAMDResults.All))
 #
 #---------------------------------------------------
 
-# WARNING: Go through after obtaining more data and check n of clusters
-# TO DO: Change point shape in 3D plots based on cExtend
 
 # K MEANS
 # Only usable for FAMD coords. Categorical nature of original vars voids usefulness
@@ -303,7 +290,7 @@ wss <- function(k) {
 
 # Compute and plot wss for k = 1 to k = 10
 k.values <- 1:10
-# extract wss for 2-15 clusters
+# extract wss
 wss_values <- purrr::map_dbl(k.values, wss)
 # Plot elbow method. No clear elbow but a choice of 5 seems appropriate
 plot(k.values, wss_values,
@@ -321,17 +308,14 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
                 marker = list(size = 3)) %>%
   plotly::layout(title = 'K-Means Clustering')
 
-# Add cluster assignment to original dataset
-dsContract$Cluster.Kmeans <- factor(cCoords$Cluster_kmeans)
-
-
 
 # Alternative: DBSCAN 
+# Also uses FAMD results
 
 # Determine optimal epsilon
-dbscan::kNNdistplot(cCoords[,1:3], k = 5) #knee occurs around eps = 1
+dbscan::kNNdistplot(cCoords[,1:3], k = 5) #knee occurs around eps = 1.5
 # Run dbscan
-dbscanResult <- fpc::dbscan(cCoords[,1:3], eps = 1.8, MinPts = 5)
+dbscanResult <- fpc::dbscan(cCoords[,1:3], eps = 1.5, MinPts = 5)
 # Assign clusters
 cCoords$Cluster_dbscan <- factor(dbscanResult$cluster)
 # Plot
@@ -339,7 +323,6 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
                 color = ~Cluster_dbscan,
                 marker = list(size = 3))%>%
   plotly::layout(title = 'DBSCAN Clustering')
-dsContract$Cluster.DBSCAN <- factor(cCoords$Cluster_dbscan)
 # Detects no clusters aside from outliers. Supports decision of control variables
 
 
@@ -356,12 +339,12 @@ plot(1:k.max, wss.Proto,
      xlab="Number of clusters K",
      ylab="Total within-clusters sum of squares")
 
-kProtoResult <- clustMixType::kproto(cCtrlVars, k=4)
-cCoords$Cluster_proto <- factor(kProtoResult$cluster)
+kProtoResult <- clustMixType::kproto(cCtrlVars, k=8)
+cCoords$Cluster_proto_ctrl <- factor(kProtoResult$cluster)
 
 # Plot in 3D using dim reduction results for sake of visualization
 plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
-                color = ~Cluster_proto,
+                color = ~Cluster_proto_ctrl,
                 marker = list(size = 3))%>%
   plotly::layout(title = 'K Prototype Clustering: Control Vars')
 
@@ -375,31 +358,13 @@ plot(1:k.max, wss.Proto,
      xlab="Number of clusters K",
      ylab="Total within-clusters sum of squares")
 
-kProtoResult2 <- clustMixType::kproto(cCombinedVars, k=5)
-cCoords$Cluster_proto2 <- factor(kProtoResult2$cluster)
+kProtoResult2 <- clustMixType::kproto(cCombinedVars, k=8)
+cCoords$Cluster_proto_all <- factor(kProtoResult2$cluster)
 # Plot in 3D using dim reduction results for sake of visualization
 plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
-                color = ~Cluster_proto2,
+                color = ~Cluster_proto_all,
                 marker = list(size = 3))%>%
   plotly::layout(title = 'K Prototype Clustering: All Vars')
-
-
-
-# Plot explanatory vars separately for each cluster
-# Plotly is known to have issues plotting within loops. Plotted without loop due to low amount of clusters
-# See https://github.com/ropensci/plotly/issues/273 for solution
-
-# dsTemp <- subset(dsContract, Cluster.Kmeans == 1)
-# plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
-#                 size = ~IntentContract,
-#                 marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
-#   layout(title = 'Survey Data, K-Means Cluster 1')
-# 
-# dsTemp <- subset(dsContract, Cluster.Kmeans == 2)
-# plotly::plot_ly(dsTemp,x = ~PsychOwn, y = ~UseFreq, z = ~MinLength,
-#                 size = ~IntentContract,
-#                 marker = list(symbol = 'circle', sizemode = 'diameter'), sizes = c(1, 20))%>%
-#   layout(title = 'Survey Data, K-Means Cluster 2')
 
 
 
@@ -409,17 +374,17 @@ plotly::plot_ly(cCoords,x = ~Dim.1, y = ~Dim.2, z = ~Dim.3,
 #
 #---------------------------------------------------
 
-# The following uses the original data (no FAMD, clustering).
+# The following uses the original data (no FAMD or clustering).
 # If the addition of data results in reasonable clustering
 # and there are a reasonable amount of points in each cluster, 
-# then the following sections will be adjusted to be performed within each cluster.
+# then the following sections can be adjusted to be performed within each cluster.
 # Ctrl: Control model; Exp: Explanatory model (what we are researching); All: Combined model
 
 # Check correlation between vars
 sapply(dsContract,class)
 cCorResults <- polycor::hetcor(dsContract[,1:11], std.err = TRUE) 
 cCorMtx <- cCorResults$correlations
-corrplot::corrplot(cCorMtx, type="upper")
+corrplot::corrplot(cCorMtx, type="upper", col=c("black"), method="number", cl.pos="n", tl.col="black")
 
 # Define models
 cMdl.Ctrl <- cExtend ~ Gender + Age + Work + Home + Education + cType
@@ -443,9 +408,10 @@ stargazer::stargazer(cRslt.Log.Ctrl,cRslt.Log.Exp,cRslt.Log.All,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/sumAllMdls.doc")
 
-# Test the overall effect of Home, Length (as at least one of their levels is significant)
+# Test the overall effect of Home, Length, Education (as at least one of their levels is significant)
 cHomeTest <- aod::wald.test(b = coef(cRslt.Log.All), Sigma = vcov(cRslt.Log.All), Terms = 6:7)
 cLengthTest <- aod::wald.test(b = coef(cRslt.Log.All), Sigma = vcov(cRslt.Log.All), Terms = 12:14)
+EducationTest <- aod::wald.test(b = coef(cRslt.Log.All), Sigma = vcov(cRslt.Log.All), Terms = 8:9)
 stargazer::stargazer(cHomeTest$result,
                      title = "Wald Test for Home",
                      align = TRUE ,
@@ -458,24 +424,29 @@ stargazer::stargazer(cLengthTest$result,
                      digits=3,
                      type = "html",
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/LengthTest.doc")
-# Neither are significant (p > 0.3)
+stargazer::stargazer(EducationTest$result,
+                     title = "Wald Test for Education",
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/EducationTest.doc")
+# Neither are significant (p > 0.1)
 
 # Variable Significance Summary:
 # Control: None
-# Explanatory: cSwapUsed @ p < 0.1, Env @ < 0.01, cPsych @ < 0.1
-# All: Env @ < 0.05, cPsych @ < 0.1
+# Explanatory: cSwapUsed @ p < 0.01, Env @ < 0.01
+# All: Env @ < 0.05, cSwapUsed @ < 0.05
 # Log Likelihoods reveal that the models rank from best to worst as: All > Exp > Ctrl
-
 
 # LRT Hypothesis Testing for Comparison of Models:
 
 # Ctrl vs All (Addition of explanatory vars)
 anova(cRslt.Log.Ctrl,cRslt.Log.All,test="LRT")
-# Significant at p < 0.001
+# Significant at p < 0.01
 
 # Exp vs All (Addition of control vars)
 anova(cRslt.Log.Exp,cRslt.Log.All,test="LRT")
-# No significance
+# Significant at p < 0.1
 
 
 #---------------------------------------------------
@@ -605,8 +576,8 @@ stargazer::stargazer(auc.all,
                      out = "~/Rcode/EUR/Adjusted BA Project/Results/AUC.doc")
 
 
-# From the previous results, the random forest performs best for all vars.
-# Therefore we will choose this classifier for predictions for non-customers
+# From the previous results, the log and random forest perform best for all vars.
+# Therefore we will choose these classifiers for predictions for non-customers
 
 # Recreate contract dataframe but with var names matching those of the no contract data
 dsTrain <- dsContract %>%
@@ -618,30 +589,47 @@ mdl.Exp <- nSign ~.
 nTrueLabels <- dsNoContract$nSign
 
 # Fit random forest using contract data
+nRslt.Log <- glm(mdl.Exp, data = dsTrain, binomial(link = "logit"))
 nRslt.Forest<- randomForest::randomForest(mdl.Exp, data = dsTrain, 
                                           ntree = 200, mtry = mA, importance = TRUE)
 
 # Calculate predicted labels
 nNewLabels <- predict(nRslt.Forest, dsNoContract, type = "prob")[,2]
+nNewLabels.Log <- predict(nRslt.Log, dsNoContract, type = "response")
 
 # Calculate performance measures
 nMeasures.Forest <- measurePerf(nNewLabels,nTrueLabels,0.5)
+nMeasures.Log <- measurePerf(nNewLabels.Log,nTrueLabels,0.5)
 
 # Create ROC plot
 nPrediction.Forest <- prediction(nNewLabels, nTrueLabels)
+nPrediction.Log <- prediction(nNewLabels.Log, nTrueLabels)
+
 nPerf.Forest <- performance(nPrediction.Forest, measure = "tpr", x.measure = "fpr")
+nPerf.Log <- performance(nPrediction.Log, measure = "tpr", x.measure = "fpr")
+
 png("~/Rcode/EUR/Adjusted BA Project/Results/NoContractROC.png")
-plot(cPerf.Log, lty=1, lwd = 2.0, col = "red", main = "ROC for No Contract Data")
+plot(nPerf.Log, lty=1, lwd = 2.0, col = "red", main = "ROC for No Contract Data")
+plot(nPerf.Forest, lty=1, lwd=2.0, col="blue", add = TRUE)
 abline(a=0, b=1, lty=3, lwd=1.5)
 mtext("Contract Data as Training Data", side = 3)
-legend(0.6, 0.5, c("Random Forest"),
-       col = c("red"),
+legend(0.6, 0.5, c("Logistic Regression","Random Forest"),
+       col = c("red","blue"),
        lwd = 3)
 dev.off()
 
 # Find AUC
+nAUC.Log <- performance(nPrediction.Log,measure = "auc")@y.values[[1]]
 nAUC.Forest <- performance(nPrediction.Forest,measure = "auc")@y.values[[1]]
-
+nAUC.all <- cbind(nAUC.Log, nAUC.Forest)
+rownames(nAUC.all) <- c("AUC")
+colnames(nAUC.all) <- c("Log","Forest")
+stargazer::stargazer(nAUC.all,
+                     title = "AUC Values for Classifiers for No Contract",
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/nAUC.doc")
 
 #---------------------------------------------------
 #
@@ -653,56 +641,4 @@ nAUC.Forest <- performance(nPrediction.Forest,measure = "auc")@y.values[[1]]
 
 # Assumes conditions met for logistic regression
 
-# Significance often occurs at 10% instead of the expected 5%
-
-#---------------------------------------------------
-#
-#                   6. Removed
-#
-#---------------------------------------------------
-
-# Saving old methods in case. Anything past this will not run
-
-cPCAResults <- prcomp(cCtrlVars,scale = TRUE)
-cPCASummary <- summary(cPCAResults)
-
-# Scree plot
-barplot(cPCASummary$importance[2,],
-        ylab = "Proportion of Variance")
-barplot(cPCASummary$importance[3,],
-        ylab = "Cumulative Proportion of Variance")
-#cat("Proportion of Variance Not Accounted for: ",pcaSummary$importance[2,4])
-
-# Biplot for first two components
-biplot(pcaResults)
-# TO DO: Figure out how to display var lines on 3D plot?
-
-# Plot on 2D plot
-newCoords <- as.data.frame(pcaSummary$x)
-newCoords <- newCoords[c("PC1","PC2","PC3")]
-library(ggplot2)
-ggplot(newCoords, aes(x=PC1,y=PC2))+
-  geom_point(color = "red")
-uniqueCoords2D <- sum(!duplicated(newCoords[,1:2])) 
-
-
-# Plor on 3D plot
-# Generates a plot with roughly 4 groups of planes and ~6 outliers
-library(plotly)
-plot_ly(newCoords,x = ~PC1, y = ~PC2, z = ~PC3,
-        marker = list(size = 3))%>%
-  layout(title = 'Survey Data After PCA')
-uniqueCoords3D <- sum(!duplicated(newCoords[,1:3]))
-
-# TROUBLE SHOOTING
-
-# Checking for unique points in any combination of dimensionals for the PCA result always results in 175, can be indicating issue
-uniqueCoords<-plyr::count(newCoords[,1])
-cat("Number of Points Not Displayed Due to Overlap: ",nRows - nrow(uniqueCoords))
-
-# Explore original data to check for possible causes of issues
-plot_ly(dsContract,x = ~Age, y = ~HrPWork, z = ~dGender,
-        marker = list(size = 3))%>%
-  layout(title = 'Original Survey Data, Not Accounting For Neighborhood')
-reducedDF <- dsContract[c("Age","HrPWork","dGender")]
-unique_OG <- plyr::count(reducedDF)
+# Significance often occurs at 10% instead of the preferred 5%
