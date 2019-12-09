@@ -29,13 +29,12 @@ dsAll <- read.csv(file=
 dsAll <- dsAll[-c(1:2),]
 
 
+
 #---------------------------------------------------
 #
 #             1. Data Preparation
 #
 #---------------------------------------------------
-
-# TO DO: Basic var exploration (tables, visualization, etc.)
 
 library(tidyverse)
 
@@ -160,87 +159,68 @@ stargazer::stargazer(dsNoContract,
 # Univariate analysis of categorical data for dsContract
 
 # Gender
+parentVar <- c("Gender")
 cnt <- table(dsContract$Gender)
-prop <- cnt/sum(cnt)
-tbl <- t(rbind(cnt,prop))
-colnames(tbl) <- c("Count","Frequency")
-stargazer::stargazer(tbl,
-                     align = TRUE ,
-                     digits=3,
-                     type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Gender_Tbl.doc")
+prop <- round(cnt/sum(cnt),digits=3)
+tbl <- t(rbind(parentVar,cnt,prop))
+colnames(tbl) <- c("Parent Variable","Count","Frequency")
 catVarTbl <- tbl
+
 # Work
+parentVar <- c("Work")
 cnt <- table(dsContract$Work)
-prop <- cnt/sum(cnt)
-tbl <- t(rbind(cnt,prop))
-colnames(tbl) <- c("Count","Frequency")
-stargazer::stargazer(tbl,
-                     align = TRUE ,
-                     digits=3,
-                     type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Work_Tbl.doc")
+prop <- round(cnt/sum(cnt),digits=3)
+tbl <- t(rbind(parentVar,cnt,prop))
+colnames(tbl) <- c("Parent Variable","Count","Frequency")
 catVarTbl <- rbind(catVarTbl,tbl)
+
 # Home
+parentVar <- c("Home")
 cnt <- table(dsContract$Home)
-prop <- cnt/sum(cnt)
-tbl <- t(rbind(cnt,prop))
-colnames(tbl) <- c("Count","Frequency")
-stargazer::stargazer(tbl,
-                     align = TRUE,
-                     digits=3,
-                     type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Home_Tbl.doc")
+prop <- round(cnt/sum(cnt),digits=3)
+tbl <- t(rbind(parentVar,cnt,prop))
+colnames(tbl) <- c("Parent Variable","Count","Frequency")
 catVarTbl <- rbind(catVarTbl,tbl)
 
 # Education
+parentVar <- c("Education")
 cnt <- table(dsContract$Education)
-prop <- cnt/sum(cnt)
-tbl <- t(rbind(cnt,prop))
-colnames(tbl) <- c("Count","Frequency")
-stargazer::stargazer(tbl,
-                     align = TRUE,
-                     digits=3,
-                     type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Education_Tbl.doc")
+prop <- round(cnt/sum(cnt),digits=3)
+tbl <- t(rbind(parentVar,cnt,prop))
+colnames(tbl) <- c("Parent Variable","Count","Frequency")
 catVarTbl <- rbind(catVarTbl,tbl)
 
 # cType
+parentVar <- c("cType")
 cnt <- table(dsContract$cType)
-prop <- cnt/sum(cnt)
-tbl <- t(rbind(cnt,prop))
-colnames(tbl) <- c("Count","Frequency")
-stargazer::stargazer(tbl,
-                     align = TRUE,
-                     digits=3,
-                     type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/cType_Tbl.doc")
+prop <- round(cnt/sum(cnt),digits=3)
+tbl <- t(rbind(parentVar,cnt,prop))
+colnames(tbl) <- c("Parent Variable","Count","Frequency")
 catVarTbl <- rbind(catVarTbl,tbl)
 
 # cContractLength
+parentVar <- c("cContractLength")
 cnt <- table(dsContract$cContractLength)
-prop <- cnt/sum(cnt)
-tbl <- t(rbind(cnt,prop))
-colnames(tbl) <- c("Count","Frequency")
-stargazer::stargazer(tbl,
-                     align = TRUE,
-                     digits=3,
-                     type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Length_Tbl.doc")
+prop <- round(cnt/sum(cnt),digits=3)
+tbl <- t(rbind(parentVar,cnt,prop))
+colnames(tbl) <- c("Parent Variable","Count","Frequency")
 catVarTbl <- rbind(catVarTbl,tbl)
 
 # cExtend
+parentVar <- c("cExtend")
 cnt <- table(dsContract$cExtend)
-prop <- cnt/sum(cnt)
-tbl <- t(rbind(cnt,prop))
-colnames(tbl) <- c("Count","Frequency")
+prop <- round(cnt/sum(cnt),digits=3)
+tbl <- t(rbind(parentVar,cnt,prop))
+colnames(tbl) <- c("Parent Variable","Count","Frequency")
 rownames(tbl) <- c("No","Yes")
-stargazer::stargazer(tbl,
+catVarTbl <- rbind(catVarTbl,tbl)
+stargazer::stargazer(catVarTbl,
                      align = TRUE,
                      digits=3,
                      type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/cExtend_Tbl.doc")
-catVarTbl <- rbind(catVarTbl,tbl)
+                     summary = FALSE,
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/CatVarTable.doc")
+
 
 #---------------------------------------------------
 #
@@ -391,6 +371,16 @@ cMdl.Ctrl <- cExtend ~ Gender + Age + Work + Home + Education + cType
 cMdl.Exp <- cExtend ~ cSwapUsed + cContractLength + Env + cPsych
 cMdl.All <- cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed + cContractLength + Env + cPsych
 
+# Adjust to be printed
+allMdls <- rbind("cExtend ~ Gender + Age + Work + Home + Education + cType",
+                 "cExtend ~ cSwapUsed + cContractLength + Env + cPsych",
+                 "cExtend ~ Gender + Age + Work + Home + Education + cType + cSwapUsed + cContractLength + Env + cPsych")
+row.names(allMdls) <- c("Control Model","Explanatory Model","Complete Model")
+stargazer::stargazer(allMdls,
+                     align = TRUE ,
+                     type = "html",
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/MdlDef.doc")
+
 # Fit logit model
 cRslt.Log.Ctrl <- glm(cMdl.Ctrl, data=dsContract, binomial(link="logit"))
 cRslt.Log.Exp <- glm(cMdl.Exp, data=dsContract, binomial(link="logit"))
@@ -436,12 +426,27 @@ stargazer::stargazer(allWald,
 # LRT Hypothesis Testing for Comparison of Models:
 
 # Ctrl vs All (Addition of explanatory vars)
-anova(cRslt.Log.Ctrl,cRslt.Log.All,test="LRT")
-# Significant at p < 0.01
+compareCtrlAll <- anova(cRslt.Log.Ctrl,cRslt.Log.All,test="LRT")
+row.names(compareCtrlAll) <- c("Control Model","Complete Model")
+stargazer::stargazer(compareCtrlAll,
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     summary = FALSE,
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Compare_Ctrl_All.doc")
+# Significant at p < 0.05
 
 # Exp vs All (Addition of control vars)
-anova(cRslt.Log.Exp,cRslt.Log.All,test="LRT")
+compareExpAll <- anova(cRslt.Log.Exp,cRslt.Log.All,test="LRT")
+row.names(compareExpAll) <- c("Explanatory Model","Complete Model")
+stargazer::stargazer(compareExpAll,
+                     align = TRUE ,
+                     digits=3,
+                     type = "html",
+                     summary = FALSE,
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/Compare_Exp_All.doc")
 # Significant at p < 0.1
+
 
 
 #---------------------------------------------------
@@ -449,7 +454,6 @@ anova(cRslt.Log.Exp,cRslt.Log.All,test="LRT")
 #                 5. Prediction
 #
 #---------------------------------------------------
-
 
 # Define function to calculate performance measures
 measurePerf <- function(p,y,tau) {
