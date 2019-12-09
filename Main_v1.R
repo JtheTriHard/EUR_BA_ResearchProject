@@ -410,26 +410,21 @@ stargazer::stargazer(cRslt.Log.Ctrl,cRslt.Log.Exp,cRslt.Log.All,
 
 # Test the overall effect of Home, Length, Education (as at least one of their levels is significant)
 cHomeTest <- aod::wald.test(b = coef(cRslt.Log.All), Sigma = vcov(cRslt.Log.All), Terms = 6:7)
+cHomeTest <- as.data.frame(cHomeTest$result)
+
 cLengthTest <- aod::wald.test(b = coef(cRslt.Log.All), Sigma = vcov(cRslt.Log.All), Terms = 12:14)
+cLengthTest <- as.data.frame(cLengthTest$result)
+
 EducationTest <- aod::wald.test(b = coef(cRslt.Log.All), Sigma = vcov(cRslt.Log.All), Terms = 8:9)
-stargazer::stargazer(cHomeTest$result,
-                     title = "Wald Test for Home",
+EducationTest <- as.data.frame(EducationTest$result)
+
+allWald <- t(cbind(cHomeTest,cLengthTest,EducationTest))
+row.names(allWald) <- c("cHome","cLength","Education")
+stargazer::stargazer(allWald,
                      align = TRUE ,
                      digits=3,
                      type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/HomeTest.doc")
-stargazer::stargazer(cLengthTest$result,
-                     title = "Wald Test for Contract Length",
-                     align = TRUE ,
-                     digits=3,
-                     type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/LengthTest.doc")
-stargazer::stargazer(EducationTest$result,
-                     title = "Wald Test for Education",
-                     align = TRUE ,
-                     digits=3,
-                     type = "html",
-                     out = "~/Rcode/EUR/Adjusted BA Project/Results/EducationTest.doc")
+                     out = "~/Rcode/EUR/Adjusted BA Project/Results/allWald.doc")
 # Neither are significant (p > 0.1)
 
 # Variable Significance Summary:
